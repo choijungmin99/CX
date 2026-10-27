@@ -29,7 +29,13 @@ void ACXGameState::MulticastWorldFX_Implementation(FVector P,bool Explosion,bool
 {
     if(GetNetMode()==NM_DedicatedServer)return;
     auto* FX=Effect?Effect:LoadObject<UParticleSystem>(nullptr,Explosion?TEXT("/Game/StarterContent/Particles/P_Explosion.P_Explosion"):TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
-    auto* Sound=OverrideSound?OverrideSound:LoadObject<USoundBase>(nullptr,Explosion?TEXT("/Game/StarterContent/Audio/Explosion01.Explosion01"):TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01"));
+    const TCHAR* DefaultSoundPath = Explosion
+        ? TEXT("/Game/StarterContent/Audio/Explosion01.Explosion01")
+        : Speed ? TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01")
+        : TEXT("/Game/Mining/Audio/S_CoinPickup.S_CoinPickup");
+    auto* Sound=OverrideSound?OverrideSound:LoadObject<USoundBase>(nullptr,DefaultSoundPath);
     if(FX)UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),FX,P);
-    if(Sound)UGameplayStatics::PlaySoundAtLocation(this,Sound,P,.5f,Speed?1.3f:1.7f);
+    // 코인 전용 음원의 두 음과 잔향이 유지되도록 원래 피치(1.0)로 재생한다.
+    const float Pitch = Speed ? 1.3f : Explosion ? 1.7f : 1.f;
+    if(Sound)UGameplayStatics::PlaySoundAtLocation(this,Sound,P,.5f,Pitch);
 }

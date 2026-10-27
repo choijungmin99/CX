@@ -39,7 +39,14 @@ void ACXPickup::BeginPlay()
     Super::BeginPlay();
     if(!HasAuthority())Trigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     if(!PickupParticle)PickupParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
-    if(!PickupSound)PickupSound=LoadObject<USoundBase>(nullptr,TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01"));
+    if (!PickupSound)
+    {
+        // 코인은 전용 획득음을 사용한다. 차량 충격음을 높여 재생하지 않는다.
+        const TCHAR* SoundPath = IsSpeedItem()
+            ? TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01")
+            : TEXT("/Game/Mining/Audio/S_CoinPickup.S_CoinPickup");
+        PickupSound = LoadObject<USoundBase>(nullptr, SoundPath);
+    }
     if(auto* Base=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Mining/M_Items.M_Items")))
     {
         auto* M=UMaterialInstanceDynamic::Create(Base,this);M->SetVectorParameterValue(TEXT("Tint"),ItemColor());Mesh->SetMaterial(0,M);
@@ -72,5 +79,5 @@ void ACXPickup::MulticastPickupFX_Implementation(FVector P)
 {
     if(GetNetMode()==NM_DedicatedServer)return;
     if(PickupParticle)UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),PickupParticle,P);
-    if(PickupSound)UGameplayStatics::PlaySoundAtLocation(this,PickupSound,P,.5f,IsSpeedItem()?1.3f:1.8f);
+    if(PickupSound)UGameplayStatics::PlaySoundAtLocation(this,PickupSound,P,.5f,IsSpeedItem()?1.3f:1.f);
 }

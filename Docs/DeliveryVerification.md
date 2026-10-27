@@ -29,6 +29,13 @@
 - `HitEffectDuration`의 기본값은 0.8초입니다. 이후 파티클 발생을 멈추고 남은 파티클이 소멸하면 자동 정리합니다. 피격 사운드도 해당 부위를 따라갑니다.
 - 변경 후 UE 5.5 에디터 모듈 빌드와 기존 실제 2프로세스 네트워크 검증 40개를 다시 통과했습니다.
 
+## 코인 획득 효과음
+
+- 코인은 전용 SoundWave `/Game/Mining/Audio/S_CoinPickup`을 사용합니다. 원본은 `SourceAssets/Audio/CoinPickup.wav`에 있습니다.
+- 0.38초 길이의 밝은 두 음으로 구성했고, 반복 재생과 기존의 높은 피치 보정 없이 원래 피치 1.0으로 재생합니다.
+- 짧은 획득음의 재생 지연을 줄이도록 PCM과 Force Inline으로 가져왔습니다. 원본 생성과 애셋 가져오기는 각각 `Scripts/create_coin_sound.py`, `Scripts/import_coin_sound.py`로 재현할 수 있습니다.
+- 애셋 가져오기는 오류·경고 없이 완료했고, 변경 후 빌드와 실제 2프로세스 네트워크 검증 40개를 통과했습니다.
+
 ## 전체 시연 영상
 
 - 파일: [CX_Multiplayer_Demo.mp4](../Deliverables/CX_Multiplayer_Demo.mp4)
