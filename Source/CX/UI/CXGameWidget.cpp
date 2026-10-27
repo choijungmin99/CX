@@ -62,6 +62,7 @@ void UCXGameWidget::NativeOnInitialized()
     DBox->AddChildToVerticalBox(Label(TEXT("좌클릭 범퍼 공격  |  F 지뢰 설치"),14,CXUIStyle::Muted));
     DBox->AddChildToVerticalBox(Label(TEXT("Space 핸드브레이크  |  Backspace 복구"),12,CXUIStyle::Muted));
     DBox->AddChildToVerticalBox(Label(TEXT("Enter 채팅  |  R 종료 후 다시 경기"),13,CXUIStyle::Mint));
+    DBox->AddChildToVerticalBox(Label(TEXT("AIR JUMP 체공  |  2F UP 고가 코스"),12,CXUIStyle::Mint));
     TSubclassOf<UChatUI> ChatClass=ChatWidgetClass;
     if(!ChatClass)ChatClass=LoadClass<UChatUI>(nullptr,TEXT("/Game/UI/WBP_ChatUI.WBP_ChatUI_C"));
     if(!ChatClass)ChatClass=UChatUI::StaticClass();

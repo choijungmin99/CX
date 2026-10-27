@@ -86,6 +86,8 @@ public:
 
     /** 입력과 RPC 양쪽에서 검사한다. 클라이언트가 RPC를 직접 보내도 대기 중 공격할 수 없다. */
     bool CanDrive() const;
+    UFUNCTION(BlueprintPure, Category="채굴|주행", meta=(ToolTip="Chaos 바퀴 중 하나 이상이 지면과 접촉하는지 확인합니다. 점프 중에는 false입니다."))
+    bool IsVehicleGrounded() const;
     bool CanFire() const;
     void ApplyMatchInputLock();
     void BreakAccelerator();

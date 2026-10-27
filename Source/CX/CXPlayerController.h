@@ -44,6 +44,9 @@ public:
     UFUNCTION(Server,Reliable) void ServerTestResult(const FString& Label,bool bPassed);
     UFUNCTION(Client,Reliable) void ClientStartDemoCapture();
     UFUNCTION(Client,Reliable) void ClientTestPlaceCar(FVector Location);
+    /** 코스 검증에서만 실제 클라이언트 차량을 배치하고 물리 가속 입력을 유지한다. */
+    UFUNCTION(Client,Reliable) void ClientCourseTestDrive(FVector Location, FRotator Rotation);
+    UFUNCTION(Client,Reliable) void ClientCourseScreenshot(const FString& FileName);
 private:
     bool bChatOpen=false;
     double LastChatTime=-100;

@@ -114,4 +114,7 @@ if not any(a.get_class().get_name() == 'CXMiningArena' for a in editor_actors.ge
 unreal.EditorAssetLibrary.save_directory('/Game/Input')
 unreal.EditorAssetLibrary.save_directory('/Game/UI')
 unreal.EditorAssetLibrary.save_directory('/Game/Mining')
+import runpy
+from pathlib import Path
+runpy.run_path(str(Path(__file__).resolve().with_name('update_arena_layout.py')), run_name='__main__')
 print('CX_SETUP_COMPLETE', level_path)

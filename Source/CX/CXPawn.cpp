@@ -144,7 +144,7 @@ void ACXPawn::Tick(float Delta)
 
 
 	// add some angular damping if the vehicle is in midair
-	bool bMovingOnGround = ChaosVehicleMovement->IsMovingOnGround();
+	bool bMovingOnGround = IsVehicleGrounded();
 	GetMesh()->SetAngularDamping(bMovingOnGround ? 0.0f : 3.0f);
 
 	// realign the camera yaw to face front
@@ -266,6 +266,15 @@ bool ACXPawn::CanDrive() const
     if(IsMatchLocked())return false;
     const auto* PC=Cast<ACXPlayerController>(GetController());
     return !PC || !PC->IsChatOpen();
+}
+bool ACXPawn::IsVehicleGrounded() const
+{
+    // NavMovement의 기본 IsMovingOnGround는 차량 접지를 구현하지 않아 항상 false이다.
+    // 실제 Chaos 바퀴 접촉을 사용해야 지상과 체공 중의 회전 감쇠가 올바르게 전환된다.
+    if (!ChaosVehicleMovement) return false;
+    for (int32 Index=0; Index<ChaosVehicleMovement->GetNumWheels(); ++Index)
+        if (ChaosVehicleMovement->GetWheelState(Index).bInContact) return true;
+    return false;
 }
 bool ACXPawn::CanFire() const
 {

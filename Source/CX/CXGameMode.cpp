@@ -28,7 +28,8 @@ void ACXGameMode::BeginPlay()
 {
     Super::BeginPlay();
     if(auto* S=GetGameState<ACXGameState>())S->SetPhase(ECXMatchPhase::Waiting,WaitingDuration);
-    if(FParse::Param(FCommandLine::Get(),TEXT("CXNetTest")))GetWorld()->SpawnActor<ACXNetworkTestDirector>();
+    if(FParse::Param(FCommandLine::Get(),TEXT("CXNetTest")) || FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")))
+        GetWorld()->SpawnActor<ACXNetworkTestDirector>();
 }
 void ACXGameMode::PreLogin(const FString& O,const FString& A,const FUniqueNetIdRepl& U,FString& Error)
 {

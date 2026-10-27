@@ -19,7 +19,7 @@ def run(command, **kwargs):
 def build(engine):
     run([engine / 'Engine/Build/BatchFiles/Build.bat', 'CXEditor', 'Win64', 'Development', f'-Project={PROJECT}', '-WaitMutex', '-NoHotReloadFromIDE'])
 
-def launch(engine, port=7777, test=False, record=False):
+def launch(engine, port=7777, test=False, record=False, course=False):
     editor = engine / 'Engine/Binaries/Win64/UnrealEditor.exe'
     if not editor.exists():
         raise FileNotFoundError(f'UE 5.5.4 실행 파일을 찾을 수 없습니다: {editor}')
@@ -30,7 +30,7 @@ def launch(engine, port=7777, test=False, record=False):
     # 두 게임 창이 일반적인 Full HD 화면 안에 나란히 보이도록 배치한다.
     options = ['-game', '-windowed', '-ResX=960', '-ResY=600', '-WinY=20', '-NoSplash']
     if test:
-        options += ['-CXNetTest', '-unattended']
+        options += ['-CXCourseTest' if course else '-CXNetTest', '-unattended']
     if record:
         options += ['-CXRecordDemo']
     logs = SAVED / 'Tests'
@@ -81,12 +81,16 @@ def encode(explicit):
     print(f'MP4 생성: {output} / {frame_count}프레임, {duration:.1f}초 ({output.stat().st_size / 1024**2:.1f} MB)')
 
 def network_test(args):
+    course = args.command == 'course-test'
+    if course and args.record_demo:
+        raise ValueError('코스 주행 검증은 --record-demo 없이 실행하세요.')
     build(args.engine)
-    report = SAVED / 'Tests/NetworkReport.json'
+    report_name = 'CourseReport.json' if course else 'NetworkReport.json'
+    report = SAVED / 'Tests' / report_name
     report.parent.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime('%Y%m%d_%H%M%S')
     if report.exists():
-        report.rename(report.with_name(f'NetworkReport_{stamp}.json'))
+        report.rename(report.with_name(f'{report.stem}_{stamp}.json'))
     frames = SAVED / 'DemoFrames'
     if args.record_demo and frames.exists():
         # 본 도구의 임시 프레임 폴더만 이동한다. 삭제하지 않으며 Saved 밖 경로는 거부한다.
@@ -94,9 +98,9 @@ def network_test(args):
         if resolved.parent != SAVED.resolve():
             raise RuntimeError('잘못된 프레임 보관 경로입니다.')
         resolved.rename(SAVED / f'DemoFrames_{stamp}')
-    processes = launch(args.engine, args.port, True, args.record_demo)
+    processes = launch(args.engine, args.port, True, args.record_demo, course)
     try:
-        deadline = time.monotonic() + 150
+        deadline = time.monotonic() + (180 if course else 150)
         while not report.exists():
             if time.monotonic() > deadline:
                 raise TimeoutError('네트워크 검증 시간 초과. Saved/Tests 로그를 확인하세요.')
@@ -105,6 +109,8 @@ def network_test(args):
             time.sleep(.5)
         result = json.loads(report.read_text(encoding='utf-8-sig'))
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if course:
+            time.sleep(.5)  # 마지막 착지 장면의 렌더 캡처가 저장될 한 프레임을 보장한다.
         if args.record_demo:
             while not (frames / 'CLIENT/Audio.wav').exists():
                 if time.monotonic() > deadline:
@@ -113,8 +119,9 @@ def network_test(args):
             encode(args.ffmpeg)
         if not result.get('passed'):
             raise RuntimeError('실패한 검증 항목이 있습니다.')
-        shutil.copy2(report, ROOT / 'Docs/NetworkReport.json')
-        print(f'네트워크 검증 {result["check_count"]}개 통과')
+        shutil.copy2(report, ROOT / 'Docs' / report_name)
+        label = '실제 코스 주행 검증' if course else '네트워크 검증'
+        print(f'{label} {result["check_count"]}개 통과')
     finally:
         # 이 도구가 생성한 프로세스 핸들만 정리한다. 사용자 에디터나 다른 프로젝트는 건드리지 않는다.
         for process in reversed(processes):
@@ -127,7 +134,7 @@ def network_test(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['build', 'play', 'test', 'encode', 'setup'])
+    parser.add_argument('command', choices=['build', 'play', 'test', 'course-test', 'encode', 'setup'])
     parser.add_argument('--engine', type=Path, default=ENGINE)
     parser.add_argument('--port', type=int, default=7791)
     parser.add_argument('--record-demo', action='store_true')
@@ -135,7 +142,7 @@ def main():
     args = parser.parse_args()
     if args.command == 'build': build(args.engine)
     elif args.command == 'play': launch(args.engine, 7777)
-    elif args.command == 'test': network_test(args)
+    elif args.command in ('test', 'course-test'): network_test(args)
     elif args.command == 'encode': encode(args.ffmpeg)
     else:
         run([args.engine / 'Engine/Binaries/Win64/UnrealEditor-Cmd.exe', PROJECT, f'-ExecutePythonScript={ROOT / "Scripts/setup_assignment.py"}', '-unattended', '-NoSplash'])

@@ -17,6 +17,7 @@
 #include "HAL/FileManager.h"
 #include "AudioMixerBlueprintLibrary.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "ChaosWheeledVehicleMovementComponent.h"
 
 ACXPlayerController::ACXPlayerController()
 {
@@ -219,4 +220,31 @@ void ACXPlayerController::ClientTestPlaceCar_Implementation(FVector P)
         Car->GetMesh()->SetSimulatePhysics(false);
         Car->SetActorLocationAndRotation(P,FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
     }
+}
+
+void ACXPlayerController::ClientCourseTestDrive_Implementation(FVector Location, FRotator Rotation)
+{
+    if(!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")))return;
+    // 첫 접속의 소유 Pawn 참조와 Playing 복제가 도착한 뒤 배치와 입력을 함께 적용한다.
+    const TWeakObjectPtr<ACXPlayerController> WeakController(this);FTimerHandle Handle;
+    GetWorldTimerManager().SetTimer(Handle,[WeakController,Location,Rotation]()
+    {
+        auto* PC=WeakController.Get();if(!PC)return;
+        auto* Car=Cast<ACXPawn>(PC->GetPawn());if(!Car)return;
+        Car->GetChaosVehicleMovement()->ResetVehicle();
+        Car->SetActorLocationAndRotation(Location,Rotation,false,nullptr,ETeleportType::TeleportPhysics);
+        Car->GetMesh()->SetPhysicsLinearVelocity(FVector::ZeroVector);
+        Car->GetMesh()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+        Car->GetMesh()->WakeAllRigidBodies();
+        Car->DriveForTest(1.f,0.f);
+        UE_LOG(LogTemp,Display,TEXT("CX_COURSE_CLIENT_DRIVE %s"),*Location.ToString());
+    },.8f,false);
+}
+
+void ACXPlayerController::ClientCourseScreenshot_Implementation(const FString& FileName)
+{
+    if(!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")) || FScreenshotRequest::IsScreenshotRequested())return;
+    const FString Folder=FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()/TEXT("Tests/CourseScreens"));
+    IFileManager::Get().MakeDirectory(*Folder,true);
+    FScreenshotRequest::RequestScreenshot(Folder/FPaths::GetCleanFilename(FileName),true,false);
 }

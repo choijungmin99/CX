@@ -5,13 +5,14 @@
 class ACXPlayerController;
 class ACXPawn;
 
-/** -CXNetTest 옵션에서만 작동하는 실제 2프로세스 네트워크 기능 검증. 일반 경기에는 생성되지 않는다. */
+/** -CXNetTest / -CXCourseTest에서만 작동하는 실제 2프로세스 기능·물리 주행 검증. */
 UCLASS(NotBlueprintable)
 class CX_API ACXNetworkTestDirector : public AActor
 {
     GENERATED_BODY()
 public:
     ACXNetworkTestDirector();
+    virtual void BeginPlay() override;
     virtual void Tick(float Delta) override;
     void Record(const FString& Name,bool bPassed);
 private:
@@ -28,4 +29,17 @@ private:
     void RunStage();
     void Probe(const FString& Label,int32 Phase);
     void FinishReport();
+    bool bCourseMode=false;
+    bool bCourseFinished=false;
+    int32 CourseScenario=-1;
+    float CourseElapsed=0;
+    float CourseAirSeconds=0;
+    float CoursePeakHeight=0;
+    bool bCourseAirborne=false;
+    bool bCoursePeakCaptured=false;
+    float CoursePreviousHeight=0;
+    TMap<FString,float> CourseMeasurements;
+    void TickCourse(float Delta);
+    void StartCourseScenario(int32 Scenario);
+    void CompleteCourseScenario(bool bReachedGoal);
 };
