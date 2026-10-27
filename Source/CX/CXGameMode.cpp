@@ -91,11 +91,20 @@ void ACXGameMode::RestartRound()
     ++S->RoundNumber;S->Winners.Empty();
     for(TActorIterator<ACXMine> It(GetWorld());It;++It)It->Destroy();
     for(TActorIterator<ACXPlayerState> It(GetWorld());It;++It)It->ResetRoundStats();
+    TArray<APlayerController*> Controllers;
     for(FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
     {
         auto* PC=It->Get();if(!PC)continue;
-        if(APawn* Old=PC->GetPawn())Old->Destroy();RestartPlayer(PC);
+        Controllers.Add(PC);
+        // 모든 이전 차량을 먼저 정리한 뒤 재배치한다. 먼저 재생성한 차와 이전 차가 섞이지 않는다.
+        if(APawn* Old=PC->GetPawn())
+        {
+            PC->UnPossess();
+            Old->SetActorEnableCollision(false);
+            Old->Destroy();
+        }
     }
+    for(APlayerController* PC:Controllers)RestartPlayer(PC);
     S->SetPhase(ECXMatchPhase::Waiting,WaitingDuration);
     GetWorldTimerManager().SetTimer(RoundClock,this,&ACXGameMode::AdvanceClock,1.f,true);
 }
@@ -109,6 +118,15 @@ AActor* ACXGameMode::ChoosePlayerStart_Implementation(AController* PC)
 bool ACXGameMode::IsPlayerStartAvailable(const APlayerStart* S) const
 {
     if(!IsValid(S)||!GetWorld())return false;
+    // 한 프레임 안에 연속 스폰하면 Chaos 차체가 아직 안정된 높이에 있지 않을 수 있다.
+    // 물리 오버랩 검사에 더해 실제 차량 위치로 출발 공간을 예약하여 같은 지점의 중복 선택을 막는다.
+    const float RequiredSeparation=VehicleSpawnCheckHalfExtent.Size2D()*2.f;
+    for(TActorIterator<ACXPawn> It(GetWorld());It;++It)
+    {
+        if(!IsValid(*It) || It->IsActorBeingDestroyed())continue;
+        const FVector Delta=It->GetActorLocation()-S->GetActorLocation();
+        if(Delta.Size2D()<RequiredSeparation && FMath::Abs(Delta.Z)<600.f)return false;
+    }
     FCollisionObjectQueryParams Objects;Objects.AddObjectTypesToQuery(ECC_Vehicle);
     return !GetWorld()->OverlapAnyTestByObjectType(S->GetActorTransform().TransformPosition(VehicleSpawnCheckOffset),S->GetActorQuat(),Objects,FCollisionShape::MakeBox(VehicleSpawnCheckHalfExtent),FCollisionQueryParams(SCENE_QUERY_STAT(CXSpawn),false));
 }

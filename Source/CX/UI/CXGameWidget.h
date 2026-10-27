@@ -30,6 +30,8 @@ private:
     UPROPERTY() TObjectPtr<UTextBlock> SpeedText;
     UPROPERTY() TObjectPtr<UTextBlock> PhaseText;
     UPROPERTY() TObjectPtr<UTextBlock> ClockText;
+    UPROPERTY() TObjectPtr<UTextBlock> ConnectionText;
+    UPROPERTY() TObjectPtr<UTextBlock> ConnectionHintText;
     UPROPERTY() TObjectPtr<UTextBlock> ResultText;
     UPROPERTY() TObjectPtr<UTextBlock> NoticeText;
     UPROPERTY() TObjectPtr<UTextBlock> DamageText;

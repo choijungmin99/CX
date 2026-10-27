@@ -50,7 +50,11 @@ void ACXNetworkTestDirector::RunStage()
     auto* GM=GetWorld()->GetAuthGameMode<ACXGameMode>();auto* GS=GetWorld()->GetGameState<ACXGameState>();
     if(!GM||!GS||Players.Num()!=2)return;
     auto* H=Cast<ACXPawn>(Players[0]->GetPawn());auto* G=Cast<ACXPawn>(Players[1]->GetPawn());
-    if(!H||!G){Record(TEXT("pawns_exist"),false);return;}
+    if(!H||!G)
+    {
+        // 차량 생성 실패도 즉시 실패 보고서를 남긴다. 결과 파일 없이 외부 타임아웃까지 기다리지 않는다.
+        Record(TEXT("pawns_exist"),false);FinishReport();Stage=17;return;
+    }
     auto* HP=H->GetPlayerState<ACXPlayerState>();auto* GP=G->GetPlayerState<ACXPlayerState>();
     if(!HP||!GP)return;
     const TArray<FString> Captions={
@@ -170,6 +174,9 @@ void ACXNetworkTestDirector::RunStage()
         Record(TEXT("finished_rejects_actions"),G->SuccessfulAttacks==BeforeAttacks && G->MinesPlaced==BeforeMines && FVector::Dist(BeforeLocation,G->GetActorLocation())<1);
         GM->RestartRound();break;
     case 16:
+        Record(TEXT("rematch_two_distinct_vehicles"),H!=G && H->GetController()==Players[0] && G->GetController()==Players[1]
+            && FVector::Dist2D(H->GetActorLocation(),G->GetActorLocation())>GM->VehicleSpawnCheckHalfExtent.Size2D()*2.f);
+        Record(TEXT("rematch_both_vehicles_simulate_physics"),H->GetMesh()->IsSimulatingPhysics() && G->GetMesh()->IsSimulatingPhysics());
         Record(TEXT("rematch_resets_private_stats"),HP->Coins==0 && GP->Coins==0 && HP->BonusMaxSpeed==0 && GP->BonusMaxSpeed==0);
         Record(TEXT("rematch_waiting_and_empty_winners"),GS->MatchPhase==ECXMatchPhase::Waiting && GS->Winners.IsEmpty() && GS->RoundNumber==2);
         FinishReport();break;

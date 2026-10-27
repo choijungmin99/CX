@@ -36,9 +36,11 @@
     "finished_tie_local_ui_state": true,
     "finished_tie_owner_only_privacy": true,
     "finished_rejects_actions": true,
+    "rematch_two_distinct_vehicles": true,
+    "rematch_both_vehicles_simulate_physics": true,
     "rematch_resets_private_stats": true,
     "rematch_waiting_and_empty_winners": true
   },
-  "check_count": 38,
+  "check_count": 40,
   "passed": true
 }

@@ -27,7 +27,8 @@ def launch(engine, port=7777, test=False, record=False):
     if not dll.exists():
         build(engine)
     common = [str(editor), str(PROJECT)]
-    options = ['-game', '-windowed', '-ResX=1280', '-ResY=800', '-WinY=20', '-NoSplash']
+    # 두 게임 창이 일반적인 Full HD 화면 안에 나란히 보이도록 배치한다.
+    options = ['-game', '-windowed', '-ResX=960', '-ResY=600', '-WinY=20', '-NoSplash']
     if test:
         options += ['-CXNetTest', '-unattended']
     if record:
@@ -36,7 +37,7 @@ def launch(engine, port=7777, test=False, record=False):
     logs.mkdir(parents=True, exist_ok=True)
     # 실제 조작·관찰이 필요한 게임 창이다. 녹화 역시 게임 렌더 타깃만 읽는다.
     host = subprocess.Popen(common + ['/Game/Maps/CXMiningArena?listen'] + options + [f'-port={port}', '-WinX=0', f'-abslog={logs / "Host.log"}'], cwd=ROOT)
-    client = subprocess.Popen(common + [f'127.0.0.1:{port}'] + options + ['-WinX=1280', f'-abslog={logs / "Client.log"}'], cwd=ROOT)
+    client = subprocess.Popen(common + [f'127.0.0.1:{port}'] + options + ['-WinX=960', f'-abslog={logs / "Client.log"}'], cwd=ROOT)
     print(f'호스트 PID={host.pid}, 게스트 PID={client.pid}', flush=True)
     return host, client
 

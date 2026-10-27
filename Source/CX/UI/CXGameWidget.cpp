@@ -44,10 +44,18 @@ void UCXGameWidget::NativeOnInitialized()
     CoinsText=Label(TEXT("0 원"),38,CXUIStyle::Gold);PBox->AddChildToVerticalBox(CoinsText);
     BonusText=Label(TEXT("추가 최고 속도  +0 km/h"),16);BonusText->SetToolTipText(FText::FromString(TEXT("속도 아이템은 +10 km/h, 바퀴 피격은 일시적으로 -30 km/h를 적용합니다.")));PBox->AddChildToVerticalBox(BonusText);
     DamageText=Label(TEXT("차량 정상"),13,CXUIStyle::Mint);PBox->AddChildToVerticalBox(DamageText)->SetPadding(FMargin(0,8,0,0));
-    auto* Status=Panel({1,0},{1,0},{-24,24},{230,135});auto* SBox=WidgetTree->ConstructWidget<UVerticalBox>();Status->SetContent(SBox);
+    auto* Status=Panel({1,0},{1,0},{-24,24},{320,205});auto* SBox=WidgetTree->ConstructWidget<UVerticalBox>();Status->SetContent(SBox);
     PhaseText=Label(TEXT("출발 대기"),18,CXUIStyle::Mint);SBox->AddChildToVerticalBox(PhaseText);
     ClockText=Label(TEXT("00:10"),38);SBox->AddChildToVerticalBox(ClockText);
     SBox->AddChildToVerticalBox(Label(TEXT("시간 안에 가장 많은 원화를!"),12,CXUIStyle::Muted));
+    // 한 창만 실행한 경우와 실제 상대가 접속한 경우를 화면에서 구분한다.
+    // 공개 접속 인원만 표시하고 다른 플레이어의 개인 원화는 읽지 않는다.
+    ConnectionText=Label(TEXT("접속 상태 확인 중"),14,CXUIStyle::Gold);
+    SBox->AddChildToVerticalBox(ConnectionText)->SetPadding(FMargin(0,8,0,0));
+    ConnectionHintText=Label(TEXT("상대 플레이어 접속 대기"),12,CXUIStyle::Muted);
+    ConnectionHintText->SetAutoWrapText(true);
+    ConnectionHintText->SetToolTipText(FText::FromString(TEXT("다른 차량은 접속한 플레이어가 운전합니다. 같은 PC에서는 각 게임 창을 클릭한 뒤 운전하세요.")));
+    SBox->AddChildToVerticalBox(ConnectionHintText);
     auto* Driving=Panel({1,1},{1,1},{-24,-24},{340,205});auto* DBox=WidgetTree->ConstructWidget<UVerticalBox>();Driving->SetContent(DBox);
     SpeedText=Label(TEXT("000 km/h"),32);DBox->AddChildToVerticalBox(SpeedText);
     DBox->AddChildToVerticalBox(Label(TEXT("W/S 가속·제동  |  A/D 조향"),14,CXUIStyle::Muted));
@@ -66,7 +74,7 @@ void UCXGameWidget::NativeOnInitialized()
     auto* RHint=Label(TEXT("동점 최고 기록은 공동 우승으로 처리됩니다."),14,CXUIStyle::Muted);RHint->SetJustification(ETextJustify::Center);RBox->AddChildToVerticalBox(RHint)->SetPadding(FMargin(0,16));
     auto* RButton=WidgetTree->ConstructWidget<UButton>();RButton->SetContent(Label(TEXT("다시 경기  [R]"),18));RButton->OnClicked.AddDynamic(this,&UCXGameWidget::Rematch);RBox->AddChildToVerticalBox(RButton);
     ResultPanel->SetVisibility(ESlateVisibility::Collapsed);
-    NetworkPanel=Panel({1,0},{1,0},{-24,175},{230,155});auto* NBox=WidgetTree->ConstructWidget<UVerticalBox>();NetworkPanel->SetContent(NBox);
+    NetworkPanel=Panel({1,0},{1,0},{-24,245},{320,155});auto* NBox=WidgetTree->ConstructWidget<UVerticalBox>();NetworkPanel->SetContent(NBox);
     auto* Host=WidgetTree->ConstructWidget<UButton>();Host->SetContent(Label(TEXT("리슨 서버 열기"),15));Host->OnClicked.AddDynamic(this,&UCXGameWidget::HostGame);NBox->AddChildToVerticalBox(Host);
     IPInput=WidgetTree->ConstructWidget<UEditableTextBox>();IPInput->SetText(FText::FromString(TEXT("127.0.0.1")));IPInput->SetToolTipText(FText::FromString(TEXT("접속할 호스트의 IP 주소입니다. 같은 PC의 두 창은 127.0.0.1을 사용하세요.")));NBox->AddChildToVerticalBox(IPInput)->SetPadding(FMargin(0,8));
     auto* Join=WidgetTree->ConstructWidget<UButton>();Join->SetContent(Label(TEXT("서버에 접속"),15));Join->OnClicked.AddDynamic(this,&UCXGameWidget::JoinGame);NBox->AddChildToVerticalBox(Join);
@@ -77,6 +85,15 @@ void UCXGameWidget::NativeTick(const FGeometry& G,float Dt)
     auto* PC=GetOwningPlayer<ACXPlayerController>();if(!PC)return;
     // 절대 PlayerArray를 순회해 상대의 Coins를 UI에 표시하지 않는다.
     auto* PS=PC->GetPlayerState<ACXPlayerState>();auto* S=GetWorld()->GetGameState<ACXGameState>();
+    const ENetMode NetMode=PC->GetNetMode();
+    const int32 PlayerCount=S?S->PlayerArray.Num():0;
+    const TCHAR* Role=NetMode==NM_Client?TEXT("클라이언트"):NetMode==NM_ListenServer?TEXT("리슨 호스트"):TEXT("오프라인");
+    ConnectionText->SetText(FText::FromString(FString::Printf(TEXT("%s · 접속 %d/2명"),Role,PlayerCount)));
+    const bool bConnectedPair=NetMode!=NM_Standalone && PlayerCount>=2;
+    ConnectionText->SetColorAndOpacity(FSlateColor(bConnectedPair?CXUIStyle::Mint:CXUIStyle::Gold));
+    ConnectionHintText->SetText(FText::FromString(NetMode==NM_Standalone
+        ?TEXT("2인 실행 또는 서버 열기/접속이 필요합니다.")
+        :bConnectedPair?TEXT("각 창을 클릭한 뒤 W/A/S/D로 운전하세요."):TEXT("상대 플레이어 접속 대기")));
     if(PS){CoinsText->SetText(FText::FromString(FString::Printf(TEXT("%d 원"),PS->Coins)));BonusText->SetText(FText::FromString(FString::Printf(TEXT("추가 최고 속도  %+.1f km/h"),PS->BonusMaxSpeed)));}
     if(auto* Car=Cast<ACXPawn>(PC->GetPawn()))
     {
