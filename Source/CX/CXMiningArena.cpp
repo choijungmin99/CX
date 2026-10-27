@@ -3,7 +3,11 @@
 #include "Components/TextRenderComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
-ACXMiningArena::ACXMiningArena(){RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("경기장 원점"));}
+ACXMiningArena::ACXMiningArena()
+{
+    RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("ArenaRoot"));
+    RootComponent->SetMobility(EComponentMobility::Static);
+}
 void ACXMiningArena::OnConstruction(const FTransform& T)
 {
     Super::OnConstruction(T);

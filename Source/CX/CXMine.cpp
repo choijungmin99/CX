@@ -11,10 +11,10 @@
 ACXMine::ACXMine()
 {
     bReplicates=true;SetNetUpdateFrequency(5.f);
-    Trigger=CreateDefaultSubobject<USphereComponent>(TEXT("지뢰 감지 범위"));SetRootComponent(Trigger);Trigger->SetSphereRadius(160);
+    Trigger=CreateDefaultSubobject<USphereComponent>(TEXT("MineTrigger"));SetRootComponent(Trigger);Trigger->SetSphereRadius(160);
     Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);Trigger->SetCollisionResponseToChannel(ECC_Vehicle,ECR_Overlap);
     Trigger->OnComponentBeginOverlap.AddDynamic(this,&ACXMine::OnOverlap);
-    Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("지뢰 표시"));Mesh->SetupAttachment(Trigger);Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MineMesh"));Mesh->SetupAttachment(Trigger);Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));Mesh->SetRelativeScale3D(FVector(1.8f,1.8f,.18f));
     SetLifeSpan(25);
 }

@@ -17,11 +17,11 @@ ACXPickup::ACXPickup()
     bReplicates=true;SetReplicateMovement(false);
     SetNetUpdateFrequency(1.f);SetMinNetUpdateFrequency(1.f);
     PrimaryActorTick.bCanEverTick=true;
-    Trigger=CreateDefaultSubobject<USphereComponent>(TEXT("획득 범위"));SetRootComponent(Trigger);
+    Trigger=CreateDefaultSubobject<USphereComponent>(TEXT("PickupTrigger"));SetRootComponent(Trigger);
     Trigger->SetSphereRadius(145);Trigger->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
     Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);Trigger->SetCollisionResponseToChannel(ECC_Vehicle,ECR_Overlap);
     Trigger->OnComponentBeginOverlap.AddDynamic(this,&ACXPickup::OnOverlap);
-    Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("아이템 표시"));Mesh->SetupAttachment(Trigger);
+    Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupMesh"));Mesh->SetupAttachment(Trigger);
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 ACXCoin::ACXCoin()

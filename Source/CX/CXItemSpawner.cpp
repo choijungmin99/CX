@@ -4,7 +4,7 @@
 
 ACXItemSpawner::ACXItemSpawner()
 {
-    RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("스폰 위치"));
+    RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("SpawnPoint"));
     ItemClass=ACXCoin::StaticClass();bReplicates=false;
 }
 void ACXItemSpawner::BeginPlay(){Super::BeginPlay();if(HasAuthority())SpawnItem();}
