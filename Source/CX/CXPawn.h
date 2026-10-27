@@ -95,6 +95,9 @@ public:
     UFUNCTION(Server,Reliable) void ServerPlaceMine();
     UFUNCTION(Server,Reliable) void ServerResetVehicle();
     UFUNCTION(NetMulticast,Unreliable) void MulticastAttackFX(FVector Start,FVector End,bool bHit);
+    /** 피격 차량의 부위 기준 상대 좌표를 전달하여 각 화면에서 움직이는 차량에 효과를 붙인다. */
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastHitFX(FName BoneName, FVector LocalHitLocation, FVector LocalHitNormal);
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="채굴|입력", meta=(ToolTip="좌클릭에 매핑하는 Boolean InputAction 애셋입니다.")) TObjectPtr<UInputAction> FireAction;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="채굴|입력", meta=(ToolTip="F키에 매핑하는 Boolean InputAction 애셋입니다.")) TObjectPtr<UInputAction> MineAction;
     UPROPERTY(EditDefaultsOnly, Category="채굴|공격", meta=(ClampMin="100", ToolTip="앞 범퍼 중앙에서 시작하는 서버 라인트레이스의 최대 사거리(cm)입니다.")) float AttackRange=1800.f;
@@ -103,6 +106,8 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AcceleratorBroken, Category="채굴|피해", meta=(ToolTip="지뢰에 맞아 가속 입력이 잠긴 상태입니다. 서버가 2초 후 해제합니다.")) bool bAcceleratorBroken=false;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="차량 피격 시 모든 클라이언트에 재생할 파티클입니다.")) TObjectPtr<class UParticleSystem> HitParticle;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="공격 명중 시 재생할 효과음입니다.")) TObjectPtr<class USoundBase> HitSound;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ClampMin="0.1", ClampMax="5.0", ToolTip="피격 부위에 붙은 파티클의 발생 시간(초)입니다. 이후 발생을 멈추고 남은 파티클이 사라지면 자동 정리합니다."))
+    float HitEffectDuration = 0.8f;
     int32 SuccessfulAttacks=0;
     int32 MinesPlaced=0;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="채굴|부위 판정", meta=(ToolTip="바퀴 Bone에 부착한 쿼리 전용 피격 범위입니다. 차량의 실제 물리 충돌에는 영향을 주지 않습니다.")) TArray<TObjectPtr<class USphereComponent>> WheelHitZones;
@@ -111,6 +116,9 @@ public:
     void ResetVehicleOnServer();
     void DriveForTest(float Gas,float Turn);
 private:
+    /** 공용 원본 애셋을 변경하지 않는 차량 피격 전용 로컬 공간 파티클 사본이다. */
+    UPROPERTY(Transient)
+    TObjectPtr<class UParticleSystem> AttachedHitParticle;
     double LastAttackTime=-100;
     double LastMineTime=-100;
     double LastResetTime=-100;

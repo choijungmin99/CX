@@ -19,6 +19,10 @@
 #include "Engine/DamageEvents.h"
 #include "DrawDebugHelpers.h"
 #include "Particles/ParticleSystem.h"
+#include "Particles/ParticleEmitter.h"
+#include "Particles/ParticleLODLevel.h"
+#include "Particles/ParticleModuleRequired.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "Components/SphereComponent.h"
@@ -230,6 +234,21 @@ void ACXPawn::BeginPlay()
     GetMesh()->SetGenerateOverlapEvents(true);
     if(!HitParticle)HitParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
     if(!HitSound)HitSound=LoadObject<USoundBase>(nullptr,TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01"));
+    if (HitParticle && GetNetMode() != NM_DedicatedServer)
+    {
+        // 컴포넌트만 부착하면 이미 방출된 월드 공간 파티클은 뒤에 남는다.
+        // 피격 전용 사본의 모든 LOD를 로컬 공간으로 바꿔 파티클까지 차량을 따라가게 한다.
+        // 원본 P_Sparks는 코인 등의 다른 효과에서도 사용하므로 수정하지 않는다.
+        AttachedHitParticle = DuplicateObject<UParticleSystem>(HitParticle, this);
+        for (UParticleEmitter* Emitter : AttachedHitParticle->Emitters)
+        {
+            if (!Emitter) continue;
+            for (UParticleLODLevel* LOD : Emitter->LODLevels)
+            {
+                if (LOD && LOD->RequiredModule) LOD->RequiredModule->bUseLocalSpace = true;
+            }
+        }
+    }
     ApplyMatchInputLock();
 }
 void ACXPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -293,6 +312,14 @@ void ACXPawn::ServerFire_Implementation()
         LastAttackBone=Hit.BoneName;
         // PointDamage는 물리 애셋의 BoneName을 전달하므로 바퀴 피격을 판별할 수 있다.
         UGameplayStatics::ApplyPointDamage(Victim,5.f,GetActorForwardVector(),Hit,GetController(),this,UDamageType::StaticClass());
+        // 월드 명중 좌표 대신 피격 부위의 상대 좌표를 보낸다.
+        // 복제가 도착할 때 차량 위치가 달라져도 해당 차량의 같은 부위에서 효과가 재생된다.
+        USkeletalMeshComponent* VictimMesh = Victim->GetMesh();
+        const FName AttachBone = VictimMesh->DoesSocketExist(Hit.BoneName) ? Hit.BoneName : NAME_None;
+        const FTransform HitFrame = VictimMesh->GetSocketTransform(AttachBone);
+        Victim->MulticastHitFX(AttachBone,
+            HitFrame.InverseTransformPosition(Hit.ImpactPoint),
+            HitFrame.InverseTransformVectorNoScale(Hit.ImpactNormal));
         ++SuccessfulAttacks;
     }
     MulticastAttackFX(Start,Hit.bBlockingHit?Hit.ImpactPoint:End,Victim!=nullptr);
@@ -323,11 +350,36 @@ void ACXPawn::MulticastAttackFX_Implementation(FVector Start,FVector End,bool bH
 {
     if(GetNetMode()==NM_DedicatedServer)return;
     DrawDebugLine(GetWorld(),Start,End,bHit?FColor::Red:FColor::Cyan,false,.35f,0,4.f);
-    if(bHit)
+}
+void ACXPawn::MulticastHitFX_Implementation(FName BoneName, FVector LocalHitLocation, FVector LocalHitNormal)
+{
+    if (GetNetMode() == NM_DedicatedServer) return;
+    USkeletalMeshComponent* VehicleMesh = GetMesh();
+    if (!IsValid(VehicleMesh)) return;
+
+    const FVector Normal = LocalHitNormal.IsNearlyZero() ? FVector::UpVector : LocalHitNormal.GetSafeNormal();
+    const FVector Offset = LocalHitLocation + Normal * 3.f;
+    const FRotator Rotation = FQuat::FindBetweenNormals(FVector::UpVector, Normal).Rotator();
+    if (AttachedHitParticle)
     {
-        if(HitParticle)UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),HitParticle,End);
-        if(HitSound)UGameplayStatics::PlaySoundAtLocation(this,HitSound,End,.5f);
+        UParticleSystemComponent* Effect = UGameplayStatics::SpawnEmitterAttached(
+            AttachedHitParticle, VehicleMesh, BoneName, Offset, Rotation,
+            EAttachLocation::KeepRelativeOffset, true);
+        if (Effect)
+        {
+            // 반복형 애셋도 무한히 쌓이지 않도록 발생을 멈춘 뒤 자연스럽게 소멸시킨다.
+            // 차량이 먼저 파괴되면 약한 참조가 무효화되므로 남은 타이머도 안전하다.
+            const TWeakObjectPtr<UParticleSystemComponent> WeakEffect(Effect);
+            FTimerHandle FinishTimer;
+            GetWorldTimerManager().SetTimer(FinishTimer, [WeakEffect]()
+            {
+                if (UParticleSystemComponent* ActiveEffect = WeakEffect.Get()) ActiveEffect->DeactivateSystem();
+            }, FMath::Clamp(HitEffectDuration, 0.1f, 5.f), false);
+        }
     }
+    if (HitSound)
+        UGameplayStatics::SpawnSoundAttached(HitSound, VehicleMesh, BoneName, Offset,
+            EAttachLocation::KeepRelativeOffset, true, .5f);
 }
 void ACXPawn::ServerPlaceMine_Implementation()
 {
