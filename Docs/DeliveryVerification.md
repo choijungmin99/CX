@@ -29,6 +29,17 @@
 - `HitEffectDuration`의 기본값은 0.8초입니다. 이후 파티클 발생을 멈추고 남은 파티클이 소멸하면 자동 정리합니다. 피격 사운드도 해당 부위를 따라갑니다.
 - 변경 후 UE 5.5 에디터 모듈 빌드와 기존 실제 2프로세스 네트워크 검증 40개를 다시 통과했습니다.
 
+## 범퍼 레이저 발사
+
+- 서버 라인트레이스 끝점까지 청백색 중심선과 부드러운 외곽 발광을 표시합니다. 약 25ms 동안 뻗어 나와 기본 0.16초 안에 흐려지고 자동 정리됩니다. 범퍼에는 짧은 섬광과 그림자 없는 빛을 표시합니다.
+- 전용 발사음은 `/Game/Mining/Audio/S_LaserFire`입니다. 원본 `SourceAssets/Audio/LaserFire.wav`는 0.28초의 하강 에너지음과 짧은 공기음·잔향으로 구성한 자체 생성 음원입니다. PCM/Force Inline으로 가져왔습니다.
+- 명중 여부와 관계없이 발사음을 한 번 재생합니다. 차량 앞 범퍼를 따라가며 거리 감쇠와 입체 음향을 사용합니다. 명중했을 때의 기존 파손음은 피해 차량에서 별도로 재생합니다.
+- 레이저 메시에는 충돌과 데미지가 없습니다. 사거리·5원 탈취·바퀴 판정·쿨다운은 기존 서버 로직을 사용합니다. 과제 판정 확인용 `DrawDebugLine`은 차량 기본값의 `bShowAttackTrace`를 켜면 추가로 표시됩니다.
+- 차량 기본값의 `LaserDuration`, `FireSoundVolume`, `FireSound`, `LaserMaterial`에 한글 툴팁을 작성했습니다.
+- 빌드와 실제 2프로세스 네트워크 검증 **40개**, [레이저 검증 11개](LaserFXReport.json)를 통과했습니다. 양쪽에서 빗나감 1회·명중 3회의 효과와 발사음 생성, 재생 종료 후 정리, 발광 재질 컴파일을 확인했습니다. 원본 WAV는 48kHz/16-bit mono이고 최대 진폭은 0.72로 클리핑이 없습니다.
+- 실제 게임 렌더 캡처: [발사·빗나감](../Deliverables/Laser_Miss.png), [명중](../Deliverables/Laser_Hit.png). 캡처 검증에서만 발사구가 보이는 측면 카메라를 잠깐 사용하며, 일반 플레이 카메라는 그대로입니다.
+- 재현: `VerifyMultiplayer.cmd --capture-laser` 실행 후 UE 내장 Python으로 `Scripts/check_laser_fx.py`를 실행합니다. 원본 음원과 애셋은 `Scripts/create_laser_sound.py`, `Scripts/import_laser_assets.py`로 생성합니다. 애셋 가져오기 명령에는 `-AllowCommandletAudio`가 필요합니다.
+
 ## 코인 획득 효과음
 
 - 코인은 전용 SoundWave `/Game/Mining/Audio/S_CoinPickup`을 사용합니다. 원본은 `SourceAssets/Audio/CoinPickup.wav`에 있습니다.

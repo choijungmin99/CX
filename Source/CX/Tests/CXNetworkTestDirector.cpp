@@ -16,6 +16,8 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 ACXNetworkTestDirector::ACXNetworkTestDirector(){PrimaryActorTick.bCanEverTick=true;bReplicates=false;}
 void ACXNetworkTestDirector::Record(const FString& Name,bool Pass)
@@ -116,12 +118,28 @@ void ACXNetworkTestDirector::RunStage()
         H->GetMesh()->SetSimulatePhysics(false);G->GetMesh()->SetSimulatePhysics(false);
         // 코인 재생성 지점과 분리한 시험 구역이다. 공격 중 우연한 추가 획득을 방지한다.
         H->SetActorLocationAndRotation(FVector(2000,6000,100),FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
-        G->SetActorLocationAndRotation(FVector(1000,6000,100),FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
+        const float LaneY=FParse::Param(FCommandLine::Get(),TEXT("CXLaserCapture"))?5000.f:6000.f;
+        G->SetActorLocationAndRotation(FVector(1000,LaneY,100),FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
         Players[0]->ClientTestPlaceCar(FVector(2000,6000,100));
-        Players[1]->ClientTestPlaceCar(FVector(1000,6000,100));
+        Players[1]->ClientTestPlaceCar(FVector(1000,LaneY,100));
         break;
     }
-    case 6: BeforeAttacks=G->SuccessfulAttacks;Players[1]->ClientTestAction(3);break;
+    case 6:
+    {
+        BeforeAttacks=G->SuccessfulAttacks;Players[1]->ClientTestAction(3);
+        if(FParse::Param(FCommandLine::Get(),TEXT("CXLaserCapture")))
+        {
+            // 빈 차선에서 빗나간 발사 후, 쿨다운이 끝나면 원래 명중 시험을 이어간다.
+            const TWeakObjectPtr<ACXPlayerController> WeakPC(Players[1]);FTimerHandle ShotTimer;
+            GetWorldTimerManager().SetTimer(ShotTimer,[WeakPC]()
+            {
+                auto* PC=WeakPC.Get();if(!PC)return;auto* Car=Cast<ACXPawn>(PC->GetPawn());if(!Car)return;
+                Car->SetActorLocationAndRotation(FVector(1000,6000,100),FRotator::ZeroRotator,false,nullptr,ETeleportType::TeleportPhysics);
+                PC->ClientTestPlaceCar(FVector(1000,6000,100));PC->ClientTestAction(3);
+            },.7f,false);
+        }
+        break;
+    }
     case 7:
         Record(TEXT("client_rpc_server_line_trace"),G->SuccessfulAttacks==BeforeAttacks+1);
         Record(TEXT("attack_transfers_exactly_5"),HP->Coins==5 && GP->Coins==15);

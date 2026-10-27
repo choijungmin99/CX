@@ -108,6 +108,16 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AcceleratorBroken, Category="채굴|피해", meta=(ToolTip="지뢰에 맞아 가속 입력이 잠긴 상태입니다. 서버가 2초 후 해제합니다.")) bool bAcceleratorBroken=false;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="차량 피격 시 모든 클라이언트에 재생할 파티클입니다.")) TObjectPtr<class UParticleSystem> HitParticle;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="공격 명중 시 재생할 효과음입니다.")) TObjectPtr<class USoundBase> HitSound;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|레이저", meta=(ToolTip="명중 여부와 관계없이 앞 범퍼에서 재생하는 전용 레이저 발사음입니다. 피격 파손음과 별도로 재생합니다."))
+    TObjectPtr<class USoundBase> FireSound;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|레이저", meta=(ToolTip="레이저의 청백색 중심과 부드러운 외곽 광원에 사용하는 발광 재질입니다."))
+    TObjectPtr<class UMaterialInterface> LaserMaterial;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|레이저", meta=(ClampMin="0.08", ClampMax="0.3", ToolTip="레이저가 나타났다가 흐려지는 시간(초)입니다. 서버의 즉시 라인트레이스 판정에는 영향을 주지 않습니다."))
+    float LaserDuration = .16f;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|레이저", meta=(ClampMin="0", ClampMax="1", ToolTip="발사음 음량입니다. 가까이에서는 선명하고 멀어질수록 작게 들립니다."))
+    float FireSoundVolume = .65f;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|디버그", meta=(ToolTip="과제 라인트레이스 확인용 선을 추가 표시합니다. 일반 플레이에서는 레이저 연출을 사용하므로 기본값은 꺼짐입니다."))
+    bool bShowAttackTrace = false;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ClampMin="0.1", ClampMax="5.0", ToolTip="피격 부위에 붙은 파티클의 발생 시간(초)입니다. 이후 발생을 멈추고 남은 파티클이 사라지면 자동 정리합니다."))
     float HitEffectDuration = 0.8f;
     int32 SuccessfulAttacks=0;
@@ -121,6 +131,9 @@ private:
     /** 공용 원본 애셋을 변경하지 않는 차량 피격 전용 로컬 공간 파티클 사본이다. */
     UPROPERTY(Transient)
     TObjectPtr<class UParticleSystem> AttachedHitParticle;
+    /** 차량마다 재사용하는 발사음의 거리 감쇠 설정이다. */
+    UPROPERTY(Transient)
+    TObjectPtr<class USoundAttenuation> FireAttenuation;
     double LastAttackTime=-100;
     double LastMineTime=-100;
     double LastResetTime=-100;

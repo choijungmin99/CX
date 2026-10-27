@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "host_four_shots_have_beam_and_audio": true,
+    "host_miss_and_three_hits": true,
+    "host_effects_and_audio_finish": true,
+    "host_material_compiles": true,
+    "host_render_captures_saved": true,
+    "client_four_shots_have_beam_and_audio": true,
+    "client_miss_and_three_hits": true,
+    "client_effects_and_audio_finish": true,
+    "client_material_compiles": true,
+    "client_render_captures_saved": true,
+    "source_audio_format_and_no_clipping": true
+  },
+  "check_count": 11,
+  "passed": true,
+  "measurements": {
+    "shots_per_side": {
+      "host": 4,
+      "client": 4
+    },
+    "audio_seconds": 0.28,
+    "audio_peak": 0.72
+  }
+}

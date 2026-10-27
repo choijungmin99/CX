@@ -26,6 +26,13 @@
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "Components/SphereComponent.h"
+#include "CXLaserShotEffect.h"
+#include "Components/AudioComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Sound/SoundAttenuation.h"
+#include "Sound/SoundWave.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Tests/CXLaserCapture.h"
 
 #define LOCTEXT_NAMESPACE "VehiclePawn"
 
@@ -33,6 +40,11 @@ DEFINE_LOG_CATEGORY(LogTemplateVehicle);
 
 ACXPawn::ACXPawn()
 {
+    // CDO에 하드 참조를 보관하여 패키징할 때도 전용 효과 애셋이 포함된다.
+    static ConstructorHelpers::FObjectFinder<USoundWave> DefaultFireSound(TEXT("/Game/Mining/Audio/S_LaserFire.S_LaserFire"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultLaserMaterial(TEXT("/Game/Mining/M_LaserGlow.M_LaserGlow"));
+    FireSound = DefaultFireSound.Object;
+    LaserMaterial = DefaultLaserMaterial.Object;
     bReplicates=true;SetReplicateMovement(true);
     SetNetUpdateFrequency(30.f);SetMinNetUpdateFrequency(15.f);
     // Chaos 템플릿의 바퀴 물리 바디가 충돌에서 제외되어도 타이어 부위를 조준할 수 있다.
@@ -234,6 +246,17 @@ void ACXPawn::BeginPlay()
     GetMesh()->SetGenerateOverlapEvents(true);
     if(!HitParticle)HitParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
     if(!HitSound)HitSound=LoadObject<USoundBase>(nullptr,TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01"));
+    if (GetNetMode() != NM_DedicatedServer)
+    {
+        FireAttenuation = NewObject<USoundAttenuation>(this);
+        auto& Settings = FireAttenuation->Attenuation;
+        Settings.bAttenuate = true;
+        Settings.bSpatialize = true;
+        Settings.DistanceAlgorithm = EAttenuationDistanceModel::Logarithmic;
+        Settings.AttenuationShape = EAttenuationShape::Sphere;
+        Settings.AttenuationShapeExtents = FVector(900.f, 0.f, 0.f);
+        Settings.FalloffDistance = 5000.f;
+    }
     if (HitParticle && GetNetMode() != NM_DedicatedServer)
     {
         // 컴포넌트만 부착하면 이미 방출된 월드 공간 파티클은 뒤에 남는다.
@@ -358,7 +381,25 @@ float ACXPawn::TakeDamage(float Damage,const FDamageEvent& Event,AController* In
 void ACXPawn::MulticastAttackFX_Implementation(FVector Start,FVector End,bool bHit)
 {
     if(GetNetMode()==NM_DedicatedServer)return;
-    DrawDebugLine(GetWorld(),Start,End,bHit?FColor::Red:FColor::Cyan,false,.35f,0,4.f);
+    // 서버가 확정한 끝점까지 시각 효과만 재생한다. 효과 메시에는 충돌/데미지가 없다.
+    ACXLaserShotEffect* Beam = nullptr;
+    if (LaserMaterial && !Start.Equals(End, .1f))
+    {
+        FActorSpawnParameters Params;
+        Params.Owner = this;
+        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        Beam = GetWorld()->SpawnActor<ACXLaserShotEffect>(ACXLaserShotEffect::StaticClass(), Start, FRotator::ZeroRotator, Params);
+        if (Beam) Beam->Initialize(this, Start, End, LaserMaterial, LaserDuration);
+    }
+    // 명중음은 피해 차량에서 따로 재생한다. 빗나가도 발사음과 총구 섬광은 발생한다.
+    UAudioComponent* Audio = nullptr;
+    if (FireSound)
+        Audio = UGameplayStatics::SpawnSoundAttached(FireSound, GetMesh(), NAME_None,
+            GetMesh()->GetComponentTransform().InverseTransformPosition(Start), EAttachLocation::KeepRelativeOffset,
+            true, FMath::Clamp(FireSoundVolume, 0.f, 1.f), 1.f, 0.f, FireAttenuation);
+    if (bShowAttackTrace)
+        DrawDebugLine(GetWorld(),Start,End,bHit?FColor::Red:FColor::Cyan,false,.35f,0,1.f);
+    CXRecordLaserFXForTest(this, Beam, Audio, bHit);
 }
 void ACXPawn::MulticastHitFX_Implementation(FName BoneName, FVector LocalHitLocation, FVector LocalHitNormal)
 {

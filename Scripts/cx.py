@@ -19,7 +19,7 @@ def run(command, **kwargs):
 def build(engine):
     run([engine / 'Engine/Build/BatchFiles/Build.bat', 'CXEditor', 'Win64', 'Development', f'-Project={PROJECT}', '-WaitMutex', '-NoHotReloadFromIDE'])
 
-def launch(engine, port=7777, test=False, record=False, course=False):
+def launch(engine, port=7777, test=False, record=False, course=False, capture_laser=False):
     editor = engine / 'Engine/Binaries/Win64/UnrealEditor.exe'
     if not editor.exists():
         raise FileNotFoundError(f'UE 5.5.4 실행 파일을 찾을 수 없습니다: {editor}')
@@ -33,6 +33,8 @@ def launch(engine, port=7777, test=False, record=False, course=False):
         options += ['-CXCourseTest' if course else '-CXNetTest', '-unattended']
     if record:
         options += ['-CXRecordDemo']
+    if capture_laser:
+        options += ['-CXLaserCapture']
     logs = SAVED / 'Tests'
     logs.mkdir(parents=True, exist_ok=True)
     # 실제 조작·관찰이 필요한 게임 창이다. 녹화 역시 게임 렌더 타깃만 읽는다.
@@ -98,7 +100,7 @@ def network_test(args):
         if resolved.parent != SAVED.resolve():
             raise RuntimeError('잘못된 프레임 보관 경로입니다.')
         resolved.rename(SAVED / f'DemoFrames_{stamp}')
-    processes = launch(args.engine, args.port, True, args.record_demo, course)
+    processes = launch(args.engine, args.port, True, args.record_demo, course, args.capture_laser)
     try:
         deadline = time.monotonic() + (180 if course else 150)
         while not report.exists():
@@ -138,6 +140,7 @@ def main():
     parser.add_argument('--engine', type=Path, default=ENGINE)
     parser.add_argument('--port', type=int, default=7791)
     parser.add_argument('--record-demo', action='store_true')
+    parser.add_argument('--capture-laser', action='store_true', help='네트워크 검증 중 명중/빗나감 레이저 화면을 저장합니다.')
     parser.add_argument('--ffmpeg', default='')
     args = parser.parse_args()
     if args.command == 'build': build(args.engine)
