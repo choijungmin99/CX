@@ -106,7 +106,7 @@ public:
     UPROPERTY(EditDefaultsOnly, Category="채굴|공격", meta=(ClampMin="0.1", ToolTip="서버에서 검증하는 공격 재사용 대기 시간(초)입니다.")) float AttackCooldown=.45f;
     UPROPERTY(EditDefaultsOnly, Category="채굴|주행", meta=(ClampMin="20", ToolTip="속도 아이템을 얻기 전 기본 최고 속도(km/h)입니다. 서버와 소유자가 함께 제한합니다.")) float BaseMaxSpeed=110.f;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_AcceleratorBroken, Category="채굴|피해", meta=(ToolTip="지뢰에 맞아 가속 입력이 잠긴 상태입니다. 서버가 2초 후 해제합니다.")) bool bAcceleratorBroken=false;
-    UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="차량 피격 시 모든 클라이언트에 재생할 파티클입니다.")) TObjectPtr<class UParticleSystem> HitParticle;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="로컬 공간 설정을 미리 저장한 차량 피격 전용 파티클입니다. 패키징 전에 Cook되며 맞은 차량의 부위를 따라갑니다.")) TObjectPtr<class UParticleSystem> HitParticle;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="공격 명중 시 재생할 효과음입니다.")) TObjectPtr<class USoundBase> HitSound;
     UPROPERTY(EditDefaultsOnly, Category="채굴|레이저", meta=(ToolTip="명중 여부와 관계없이 앞 범퍼에서 재생하는 전용 레이저 발사음입니다. 피격 파손음과 별도로 재생합니다."))
     TObjectPtr<class USoundBase> FireSound;
@@ -128,9 +128,6 @@ public:
     void ResetVehicleOnServer();
     void DriveForTest(float Gas,float Turn);
 private:
-    /** 공용 원본 애셋을 변경하지 않는 차량 피격 전용 로컬 공간 파티클 사본이다. */
-    UPROPERTY(Transient)
-    TObjectPtr<class UParticleSystem> AttachedHitParticle;
     /** 차량마다 재사용하는 발사음의 거리 감쇠 설정이다. */
     UPROPERTY(Transient)
     TObjectPtr<class USoundAttenuation> FireAttenuation;

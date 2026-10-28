@@ -19,9 +19,6 @@
 #include "Engine/DamageEvents.h"
 #include "DrawDebugHelpers.h"
 #include "Particles/ParticleSystem.h"
-#include "Particles/ParticleEmitter.h"
-#include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModuleRequired.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
@@ -43,8 +40,10 @@ ACXPawn::ACXPawn()
     // CDO에 하드 참조를 보관하여 패키징할 때도 전용 효과 애셋이 포함된다.
     static ConstructorHelpers::FObjectFinder<USoundWave> DefaultFireSound(TEXT("/Game/Mining/Audio/S_LaserFire.S_LaserFire"));
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultLaserMaterial(TEXT("/Game/Mining/M_LaserGlow.M_LaserGlow"));
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> DefaultHitParticle(TEXT("/Game/Mining/Particles/P_VehicleHit.P_VehicleHit"));
     FireSound = DefaultFireSound.Object;
     LaserMaterial = DefaultLaserMaterial.Object;
+    HitParticle = DefaultHitParticle.Object;
     bReplicates=true;SetReplicateMovement(true);
     SetNetUpdateFrequency(30.f);SetMinNetUpdateFrequency(15.f);
     // Chaos 템플릿의 바퀴 물리 바디가 충돌에서 제외되어도 타이어 부위를 조준할 수 있다.
@@ -244,7 +243,7 @@ void ACXPawn::BeginPlay()
     Super::BeginPlay();
     GetMesh()->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
     GetMesh()->SetGenerateOverlapEvents(true);
-    if(!HitParticle)HitParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
+    if(!HitParticle)HitParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/Mining/Particles/P_VehicleHit.P_VehicleHit"));
     if(!HitSound)HitSound=LoadObject<USoundBase>(nullptr,TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01"));
     if (GetNetMode() != NM_DedicatedServer)
     {
@@ -257,21 +256,9 @@ void ACXPawn::BeginPlay()
         Settings.AttenuationShapeExtents = FVector(900.f, 0.f, 0.f);
         Settings.FalloffDistance = 5000.f;
     }
-    if (HitParticle && GetNetMode() != NM_DedicatedServer)
-    {
-        // 컴포넌트만 부착하면 이미 방출된 월드 공간 파티클은 뒤에 남는다.
-        // 피격 전용 사본의 모든 LOD를 로컬 공간으로 바꿔 파티클까지 차량을 따라가게 한다.
-        // 원본 P_Sparks는 코인 등의 다른 효과에서도 사용하므로 수정하지 않는다.
-        AttachedHitParticle = DuplicateObject<UParticleSystem>(HitParticle, this);
-        for (UParticleEmitter* Emitter : AttachedHitParticle->Emitters)
-        {
-            if (!Emitter) continue;
-            for (UParticleLODLevel* LOD : Emitter->LODLevels)
-            {
-                if (LOD && LOD->RequiredModule) LOD->RequiredModule->bUseLocalSpace = true;
-            }
-        }
-    }
+    // 로컬 공간 설정은 P_VehicleHit 애셋에 미리 저장하고 Cook한다.
+    // 실행 중 Cascade 파티클을 DuplicateObject 하면 Required 모듈의 Cook 데이터가 유실되어
+    // 패키징된 게임에서 SubUV animation does not contain cooked data 오류로 종료된다.
     ApplyMatchInputLock();
 }
 void ACXPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -410,10 +397,10 @@ void ACXPawn::MulticastHitFX_Implementation(FName BoneName, FVector LocalHitLoca
     const FVector Normal = LocalHitNormal.IsNearlyZero() ? FVector::UpVector : LocalHitNormal.GetSafeNormal();
     const FVector Offset = LocalHitLocation + Normal * 3.f;
     const FRotator Rotation = FQuat::FindBetweenNormals(FVector::UpVector, Normal).Rotator();
-    if (AttachedHitParticle)
+    if (HitParticle)
     {
         UParticleSystemComponent* Effect = UGameplayStatics::SpawnEmitterAttached(
-            AttachedHitParticle, VehicleMesh, BoneName, Offset, Rotation,
+            HitParticle, VehicleMesh, BoneName, Offset, Rotation,
             EAttachLocation::KeepRelativeOffset, true);
         if (Effect)
         {
