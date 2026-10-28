@@ -14,10 +14,11 @@ public:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="채굴|스포너", meta=(ToolTip="이 위치에 생성할 아이템 클래스입니다. CXCoin 또는 CXSpeedBuff를 선택하세요.")) TSubclassOf<ACXPickup> ItemClass;
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="채굴|스포너", meta=(ClampMin="0.1", ToolTip="생성한 아이템이 파괴된 순간부터 같은 아이템을 다시 만들기까지의 초입니다. 과제 기본값은 2초입니다.")) float RespawnDelay=2.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="채굴|스포너", meta=(ClampMin="0.1", ToolTip="아이템 파괴 후 같은 종류를 다시 만들기까지의 초입니다. 기본값은 2초입니다. 재생성 순간 영역 안의 차량은 완전히 나갔다 들어와야 다시 획득할 수 있습니다.")) float RespawnDelay=2.f;
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="채굴|스포너", meta=(ToolTip="이 스포너가 생성한 현재 아이템입니다. 파괴되면 null로 바꾸고 타이머를 시작합니다.")) TObjectPtr<ACXPickup> SpawnedItem;
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="채굴|스포너") void SpawnItem();
     UFUNCTION() void OnItemDestroyed(AActor* DestroyedActor);
 private:
     FTimerHandle RespawnTimer;
+    bool bHasSpawnedItem=false;
 };

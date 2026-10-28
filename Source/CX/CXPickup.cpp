@@ -12,6 +12,8 @@
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundBase.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Engine/World.h"
+#include "Engine/OverlapResult.h"
 
 ACXPickup::ACXPickup()
 {
@@ -22,6 +24,7 @@ ACXPickup::ACXPickup()
     Trigger->SetSphereRadius(145);Trigger->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
     Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);Trigger->SetCollisionResponseToChannel(ECC_Vehicle,ECR_Overlap);
     Trigger->OnComponentBeginOverlap.AddDynamic(this,&ACXPickup::OnOverlap);
+    Trigger->OnComponentEndOverlap.AddDynamic(this,&ACXPickup::OnEndOverlap);
     Mesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupMesh"));Mesh->SetupAttachment(Trigger);
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
@@ -77,11 +80,31 @@ void ACXPickup::Tick(float Dt)
 }
 bool ACXCoin::Grant(ACXPlayerState* PS) {return PS&&PS->AddCoins(10);}
 bool ACXSpeedBuff::Grant(ACXPlayerState* PS) {return PS&&PS->AddBonusMaxSpeed(10);}
+void ACXPickup::BlockVehiclesInsideRespawnArea()
+{
+    if(!HasAuthority() || !GetWorld())return;
+    // Deferred Spawn의 FinishSpawning 전에 검사한다. 첫 오버랩으로 즉시 재획득되는 것을 막는다.
+    TArray<FOverlapResult> Overlaps;
+    FCollisionObjectQueryParams Objects;Objects.AddObjectTypesToQuery(ECC_Vehicle);
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(CXPickupRespawnGuard),false,this);
+    GetWorld()->OverlapMultiByObjectType(Overlaps,Trigger->GetComponentLocation(),FQuat::Identity,
+        Objects,FCollisionShape::MakeSphere(Trigger->GetScaledSphereRadius()),Params);
+    for(const FOverlapResult& Overlap:Overlaps)
+        if(auto* Car=Cast<ACXPawn>(Overlap.GetActor()))VehiclesAwaitingExit.Add(Car);
+}
+void ACXPickup::OnEndOverlap(UPrimitiveComponent*,AActor* Other,UPrimitiveComponent*,int32)
+{
+    // 여러 물리 바디 중 하나만 빠져나온 경우에는 아직 다시 획득할 수 없다.
+    if(HasAuthority() && Other && !Trigger->IsOverlappingActor(Other))VehiclesAwaitingExit.Remove(Other);
+}
 void ACXPickup::OnOverlap(UPrimitiveComponent*,AActor* Other,UPrimitiveComponent*,int32,bool,const FHitResult&)
 {
     if(!HasAuthority() || bConsumed)return;
     auto* S=GetWorld()->GetGameState<ACXGameState>();if(!S||!S->IsPlaying())return;
     auto* Car=Cast<ACXPawn>(Other);if(!Car)return;
+    if(VehiclesAwaitingExit.Contains(Car))return;
+    // 경사로나 점프는 허용하고, 뒤집히거나 거의 옆으로 누운 차량은 획득에서 제외한다.
+    if(FVector::DotProduct(Car->GetActorUpVector(),FVector::UpVector)<=.2f)return;
     auto* PS=Car->GetPlayerState<ACXPlayerState>();if(!Grant(PS))return;
     // 여러 바퀴/차체의 연속 오버랩과 동시 접촉에도 중복 지급하지 않는다.
     bConsumed=true;Trigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);

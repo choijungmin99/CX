@@ -5,7 +5,7 @@
 class ACXPlayerController;
 class ACXPawn;
 
-/** -CXNetTest / -CXCourseTest에서만 작동하는 실제 2프로세스 기능·물리 주행 검증. */
+/** 테스트 실행 인자에서만 작동하는 실제 2프로세스 기능·물리 주행 검증. */
 UCLASS(NotBlueprintable)
 class CX_API ACXNetworkTestDirector : public AActor
 {
@@ -31,6 +31,9 @@ private:
     void FinishReport();
     bool bCourseMode=false;
     bool bRecoveryMode=false;
+    bool bPickupMode=false;
+    int32 PickupPlayerIndex=0;
+    void TickPickup();
     int32 RecoveryStage=-1;
     float RecoveryElapsed=0.f;
     FVector RecoveryReference=FVector::ZeroVector;

@@ -14,6 +14,7 @@ void ACXNetworkTestDirector::BeginPlay()
     Super::BeginPlay();
     bCourseMode=FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest"));
     bRecoveryMode=FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest"));
+    bPickupMode=FParse::Param(FCommandLine::Get(),TEXT("CXPickupTest"));
 }
 
 void ACXNetworkTestDirector::StartCourseScenario(int32 Scenario)
