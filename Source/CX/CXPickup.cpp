@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundBase.h"
+#include "UObject/ConstructorHelpers.h"
 
 ACXPickup::ACXPickup()
 {
@@ -26,6 +27,9 @@ ACXPickup::ACXPickup()
 }
 ACXCoin::ACXCoin()
 {
+    // 코인에는 짧은 금빛 반짝임만 사용한다. 차량 피격 파티클과 독립된 애셋이다.
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> CoinFX(TEXT("/Game/Mining/Particles/P_CoinPickup.P_CoinPickup"));
+    PickupParticle=CoinFX.Object;
     Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
     Mesh->SetRelativeScale3D(FVector(1.15f,1.15f,.22f));Mesh->SetRelativeRotation(FRotator(90,0,0));
 }
@@ -38,7 +42,13 @@ void ACXPickup::BeginPlay()
 {
     Super::BeginPlay();
     if(!HasAuthority())Trigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    if(!PickupParticle)PickupParticle=LoadObject<UParticleSystem>(nullptr,TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
+    if(!PickupParticle)
+    {
+        const TCHAR* ParticlePath=IsSpeedItem()
+            ? TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks")
+            : TEXT("/Game/Mining/Particles/P_CoinPickup.P_CoinPickup");
+        PickupParticle=LoadObject<UParticleSystem>(nullptr,ParticlePath);
+    }
     if (!PickupSound)
     {
         // 코인은 전용 획득음을 사용한다. 차량 충격음을 높여 재생하지 않는다.

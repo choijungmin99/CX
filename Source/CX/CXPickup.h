@@ -19,7 +19,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="채굴|아이템") TObjectPtr<USphereComponent> Trigger;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="채굴|아이템") TObjectPtr<UStaticMeshComponent> Mesh;
-    UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="획득 시 모든 화면에 재생할 파티클입니다. 아이템 파괴 직전에 RPC로 전달합니다.")) TObjectPtr<UParticleSystem> PickupParticle;
+    UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="획득 시 모든 화면에 재생할 파티클입니다. 코인 기본값은 약 0.5초 안에 사라지는 전용 금빛 반짝임이며 차량 피격 효과와 분리되어 있습니다.")) TObjectPtr<UParticleSystem> PickupParticle;
     UPROPERTY(EditDefaultsOnly, Category="채굴|효과", meta=(ToolTip="획득 시 재생할 공간 효과음입니다.")) TObjectPtr<USoundBase> PickupSound;
     bool IsConsumed() const {return bConsumed;}
     UFUNCTION() void OnOverlap(UPrimitiveComponent* Part,AActor* Other,UPrimitiveComponent* OtherPart,int32 Body,bool Sweep,const FHitResult& Hit);

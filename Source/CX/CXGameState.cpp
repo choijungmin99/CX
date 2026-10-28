@@ -28,7 +28,12 @@ void ACXGameState::OnRep_Phase()
 void ACXGameState::MulticastWorldFX_Implementation(FVector P,bool Explosion,bool Speed,UParticleSystem* Effect,USoundBase* OverrideSound)
 {
     if(GetNetMode()==NM_DedicatedServer)return;
-    auto* FX=Effect?Effect:LoadObject<UParticleSystem>(nullptr,Explosion?TEXT("/Game/StarterContent/Particles/P_Explosion.P_Explosion"):TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks"));
+    // 코인 RPC에 효과가 생략되어도 피격용 스파크 대신 전용 금빛 효과를 선택한다.
+    const TCHAR* DefaultParticlePath=Explosion
+        ? TEXT("/Game/StarterContent/Particles/P_Explosion.P_Explosion")
+        : Speed ? TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks")
+        : TEXT("/Game/Mining/Particles/P_CoinPickup.P_CoinPickup");
+    auto* FX=Effect?Effect:LoadObject<UParticleSystem>(nullptr,DefaultParticlePath);
     const TCHAR* DefaultSoundPath = Explosion
         ? TEXT("/Game/StarterContent/Audio/Explosion01.Explosion01")
         : Speed ? TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01")
