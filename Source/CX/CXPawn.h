@@ -96,6 +96,8 @@ public:
     UFUNCTION(Server,Reliable) void ServerFire();
     UFUNCTION(Server,Reliable) void ServerPlaceMine();
     UFUNCTION(Server,Reliable) void ServerResetVehicle();
+    /** 서버가 고른 안전 위치를 소유 클라이언트의 Chaos 물리에도 함께 적용한다. */
+    UFUNCTION(NetMulticast,Reliable) void MulticastRecoverVehicle(FVector Location, FRotator Rotation);
     UFUNCTION(NetMulticast,Unreliable) void MulticastAttackFX(FVector Start,FVector End,bool bHit);
     /** 피격 차량의 부위 기준 상대 좌표를 전달하여 각 화면에서 움직이는 차량에 효과를 붙인다. */
     UFUNCTION(NetMulticast, Unreliable)
@@ -136,6 +138,7 @@ private:
     double LastResetTime=-100;
     FTimerHandle AcceleratorTimer;
     bool bStateInputLock=true;
+    bool FindRecoveryTransform(FTransform& OutTransform) const;
     void RecoverAccelerator();
     UFUNCTION() void OnRep_AcceleratorBroken();
     void FireInput(const FInputActionValue& Value);

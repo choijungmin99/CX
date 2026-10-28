@@ -157,10 +157,20 @@ void ACXPlayerController::ClientTestAction_Implementation(int32 Action)
         // PlayerController RPC가 GameState의 Playing 복제보다 먼저 도착할 수 있다.
         // 실제 W 입력은 매 프레임 Triggered되지만 단발 검증 입력은 상태 동기화 후 주입한다.
         TWeakObjectPtr<ACXPawn> WeakCar(Car);FTimerHandle H;
-        GetWorldTimerManager().SetTimer(H,[WeakCar](){if(auto* P=WeakCar.Get())P->DriveForTest(1,0);},.4f,false);
+        GetWorldTimerManager().SetTimer(H,[WeakCar]()
+        {
+            if(auto* P=WeakCar.Get())
+            {
+                P->DriveForTest(1,0);
+                if(FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest")))
+                    if(auto* PC=Cast<ACXPlayerController>(P->GetController()))
+                        PC->ServerTestResult(TEXT("owner_recovery_drive_input_received"),P->CanDrive() && !P->bAcceleratorBroken);
+            }
+        },.4f,false);
         break;
     }
     case 11: Car->DriveForTest(0,0);break;
+    case 14: Car->ServerResetVehicle();break;
     case 13:
         ServerSendChat(TEXT(""));ServerSendChat(FString::ChrN(250,TCHAR('x')));
         if(GetNetMode()==NM_Client)
@@ -224,7 +234,7 @@ void ACXPlayerController::ClientTestPlaceCar_Implementation(FVector P)
 
 void ACXPlayerController::ClientCourseTestDrive_Implementation(FVector Location, FRotator Rotation)
 {
-    if(!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")))return;
+    if(!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")) && !FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest")))return;
     // 첫 접속의 소유 Pawn 참조와 Playing 복제가 도착한 뒤 배치와 입력을 함께 적용한다.
     const TWeakObjectPtr<ACXPlayerController> WeakController(this);FTimerHandle Handle;
     GetWorldTimerManager().SetTimer(Handle,[WeakController,Location,Rotation]()
@@ -243,8 +253,23 @@ void ACXPlayerController::ClientCourseTestDrive_Implementation(FVector Location,
 
 void ACXPlayerController::ClientCourseScreenshot_Implementation(const FString& FileName)
 {
-    if(!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")) || FScreenshotRequest::IsScreenshotRequested())return;
+    if((!FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest")) && !FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest"))) || FScreenshotRequest::IsScreenshotRequested())return;
     const FString Folder=FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()/TEXT("Tests/CourseScreens"));
     IFileManager::Get().MakeDirectory(*Folder,true);
     FScreenshotRequest::RequestScreenshot(Folder/FPaths::GetCleanFilename(FileName),true,false);
+}
+
+void ACXPlayerController::ClientRecoveryTestProbe_Implementation(FVector ExpectedLocation)
+{
+    if(!FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest")))return;
+    const TWeakObjectPtr<ACXPlayerController> WeakPC(this);FTimerHandle Handle;
+    GetWorldTimerManager().SetTimer(Handle,[WeakPC,ExpectedLocation]()
+    {
+        auto* PC=WeakPC.Get();if(!PC)return;auto* Car=Cast<ACXPawn>(PC->GetPawn());if(!Car)return;
+        FCollisionQueryParams Params(SCENE_QUERY_STAT(CXRecoveryOwnerTest),false,Car);
+        const bool Clear=!PC->GetWorld()->OverlapBlockingTestByChannel(Car->GetActorLocation()+Car->GetActorUpVector()*70.f,
+            Car->GetActorQuat(),ECC_Vehicle,FCollisionShape::MakeBox(FVector(160,75,30)),Params);
+        PC->ServerTestResult(TEXT("owner_recovery_replicated_and_clear"),Clear && Car->CanDrive() && Car->GetMesh()->IsSimulatingPhysics()
+            && FVector::Dist(Car->GetActorLocation(),ExpectedLocation)<160.f);
+    },.3f,false);
 }

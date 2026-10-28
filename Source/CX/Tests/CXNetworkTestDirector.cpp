@@ -29,6 +29,7 @@ void ACXNetworkTestDirector::Tick(float Dt)
 {
     Super::Tick(Dt);
     if(!HasAuthority())return;
+    if(bRecoveryMode){TickRecovery(Dt);return;}
     if(bCourseMode){TickCourse(Dt);return;}
     if(Stage<0)
     {
@@ -203,7 +204,7 @@ void ACXNetworkTestDirector::RunStage()
 }
 void ACXNetworkTestDirector::FinishReport()
 {
-    bool Pass=Results.Num()>=(bCourseMode?9:40);FString Json=TEXT("{\n  \"checks\": {\n");int32 Count=0;
+    bool Pass=Results.Num()>=(bRecoveryMode?12:bCourseMode?9:40);FString Json=TEXT("{\n  \"checks\": {\n");int32 Count=0;
     for(auto& Pair:Results)
     {
         Pass&=Pair.Value;Json+=FString::Printf(TEXT("    \"%s\": %s%s\n"),*Pair.Key,Pair.Value?TEXT("true"):TEXT("false"),++Count<Results.Num()?TEXT(","):TEXT(""));
@@ -218,6 +219,6 @@ void ACXNetworkTestDirector::FinishReport()
     }
     Json+=TEXT("\n}\n");
     const FString Folder=FPaths::ProjectSavedDir()/TEXT("Tests");IFileManager::Get().MakeDirectory(*Folder,true);
-    FFileHelper::SaveStringToFile(Json,*(Folder/(bCourseMode?TEXT("CourseReport.json"):TEXT("NetworkReport.json"))),FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
-    UE_LOG(LogTemp,Display,TEXT("%s passed=%d checks=%d"),bCourseMode?TEXT("CX_COURSE_TEST_COMPLETE"):TEXT("CX_NETWORK_TEST_COMPLETE"),Pass,Results.Num());
+    FFileHelper::SaveStringToFile(Json,*(Folder/(bRecoveryMode?TEXT("RecoveryReport.json"):bCourseMode?TEXT("CourseReport.json"):TEXT("NetworkReport.json"))),FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+    UE_LOG(LogTemp,Display,TEXT("%s passed=%d checks=%d"),bRecoveryMode?TEXT("CX_RECOVERY_TEST_COMPLETE"):bCourseMode?TEXT("CX_COURSE_TEST_COMPLETE"):TEXT("CX_NETWORK_TEST_COMPLETE"),Pass,Results.Num());
 }

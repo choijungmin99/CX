@@ -2,17 +2,21 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 
 ACXMiningArena::ACXMiningArena()
 {
     RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("ArenaRoot"));
     RootComponent->SetMobility(EComponentMobility::Static);
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> RampMesh(TEXT("/Game/LevelPrototyping/Meshes/SM_Ramp.SM_Ramp"));
+    RampFillMesh=RampMesh.Object;
 }
 void ACXMiningArena::OnConstruction(const FTransform& T)
 {
     Super::OnConstruction(T);
     // 저장된 이전 경기장도 새 레이아웃으로 갱신한다. 형상을 바꿀 때 버전을 올린다.
-    if (Generated.IsEmpty() || BuiltLayoutVersion != 3) Rebuild();
+    if (Generated.IsEmpty() || BuiltLayoutVersion != 4) Rebuild();
 }
 UInstancedStaticMeshComponent* ACXMiningArena::Group(const TCHAR* Name,FLinearColor C,bool Collision)
 {
@@ -34,6 +38,9 @@ void ACXMiningArena::Rebuild()
     auto* Structure=Group(TEXT("Cube"),FLinearColor(.24f,.32f,.36f),true);
     auto* Guard=Group(TEXT("Cube"),FLinearColor(.12f,.20f,.24f),true);
     auto* Mint=Group(TEXT("Cube"),FLinearColor(.13f,.9f,.65f),false);
+    auto* SolidBase=Group(TEXT("Cube"),FLinearColor(.24f,.32f,.36f),true);
+    auto* SlopedBase=Group(TEXT("Cube"),FLinearColor(.24f,.32f,.36f),true);
+    SlopedBase->SetStaticMesh(RampFillMesh);
     auto Add=[](UInstancedStaticMeshComponent* M,FVector P,FVector S,FRotator R=FRotator::ZeroRotator){M->AddInstance(FTransform(R,P,S));};
     Add(Ground,{0,0,-100},{420,340,2});
     Add(Road,{0,0,4},{260,90,.08f});
@@ -41,13 +48,6 @@ void ACXMiningArena::Rebuild()
     Add(Road,{-11000,0,4},{40,220,.08f});Add(Road,{11000,0,4},{40,220,.08f});
     for(int32 X=-20;X<=20;++X)
         for(float Y:{-9000.f,0.f,9000.f})Add(White,{X*550.f,Y,10},{2.5f,.16f,.025f});
-    // 대칭 램프: 양방향에서 오르고 착지할 수 있다. 정적 큐브 충돌을 사용하여 Chaos 차량을 지지한다.
-    for(float Y:{-1600.f,1600.f})
-    {
-        Add(Concrete,{-1500,Y,280},{36,13,1.2f},FRotator(9,0,0));
-        Add(Concrete,{2000,Y,280},{36,13,1.2f},FRotator(-9,0,0));
-    }
-
     {
         // A/B는 도로 윗면의 중심이다. 두꺼운 충돌 슬래브를 윗면 아래에 배치하여 연결부 턱을 없앤다.
         auto Rail = [&](FVector A, FVector B)
@@ -58,6 +58,26 @@ void ACXMiningArena::Rebuild()
             Add(Guard,(A+B)*.5f+Up*55.f,{D.Size()/100.f,.5f,1.1f},R);
             Add(Mint,(A+B)*.5f+Up*110.f,{D.Size()/100.f,.65f,.08f},R);
         };
+        auto FillLowRamp = [&](FVector A,FVector B,float Width,float Thickness)
+        {
+            // 차가 지붕부터 끼일 수 있는 낮은 구간은 실제 쐐기형 충돌과 바닥으로 막는다.
+            // 충분히 높은 고가 도로 아래는 통로로 남긴다. 충돌 전용 투명 벽을 사용하지 않는다.
+            const float Length=FVector::Dist2D(A,B);
+            const float Rise=FMath::Abs(B.Z-A.Z);
+            const float UpZ=Length/FMath::Max(1.f,FVector::Distance(A,B));
+            if(!RampFillMesh || FMath::Min(A.Z,B.Z)-Thickness/FMath::Max(.1f,UpZ)>=350.f || FMath::Max(A.Z,B.Z)<30.f)return;
+            const FVector Low=A.Z<=B.Z?A:B,High=A.Z<=B.Z?B:A;
+            const FVector Forward=(High-Low).GetSafeNormal2D();
+            const FVector Right=FVector::CrossProduct(FVector::UpVector,Forward);
+            const float Bottom=FMath::Max(0.f,float(Low.Z)-12.f);
+            const float Top=FMath::Max(0.f,float(High.Z)-12.f);
+            const FRotator Heading(0,Forward.Rotation().Yaw,0);
+            if(Bottom>1.f)Add(SolidBase,{(A.X+B.X)*.5,(A.Y+B.Y)*.5,Bottom*.5f},{Length/100.f,Width/100.f,Bottom/100.f},Heading);
+            // SM_Ramp의 피벗은 (0,0,0), 높은 모서리는 Y=0, 낮은 모서리는 Y=100이다.
+            if(Top-Bottom>1.f && Rise>1.f)
+                Add(SlopedBase,FVector(High.X,High.Y,Bottom)-Right*(Width*.5f),
+                    {Width/100.f,Length/100.f,(Top-Bottom)/100.f},FRotator(0,Heading.Yaw+90.f,0));
+        };
         auto RoadSection = [&](UInstancedStaticMeshComponent* Surface, FVector A, FVector B, float Width, float Thickness, bool bRails)
         {
             const FVector D=B-A;
@@ -65,8 +85,15 @@ void ACXMiningArena::Rebuild()
             const FVector Up=R.RotateVector(FVector::UpVector);
             const FVector Right=R.RotateVector(FVector::RightVector);
             Add(Surface,(A+B)*.5f-Up*(Thickness*.5f),{D.Size()/100.f,Width/100.f,Thickness/100.f},R);
+            FillLowRamp(A,B,Width,Thickness);
             if(bRails)for(float Side:{-1.f,1.f})Rail(A+Right*Side*(Width*.5f-25.f),B+Right*Side*(Width*.5f-25.f));
         };
+        // 중앙 경사로의 진입 턱도 지면 높이에 맞추고, 하부는 막힌 경사체로 연결한다.
+        for(float Y:{-1600.f,1600.f})
+        {
+            RoadSection(Concrete,{-3300,Y,8},{250,Y,620},1300,120,false);
+            RoadSection(Concrete,{250,Y,620},{3800,Y,8},1300,120,false);
+        }
         auto Arrow = [&](FVector P, FRotator R)
         {
             const FVector Forward=R.Vector(),Right=R.RotateVector(FVector::RightVector),Up=R.RotateVector(FVector::UpVector);
@@ -217,5 +244,5 @@ void ACXMiningArena::Rebuild()
     Add(Concrete,{-9000,0,1450},{1.5f,100,5});
     for(float Y:{-5000.f,5000.f})Add(Concrete,{-9000,Y,650},{2,2,13});
     auto* Sign=NewObject<UTextRenderComponent>(this);Sign->SetupAttachment(RootComponent);Sign->SetText(FText::FromString(TEXT("WON MINING  /  FOREST CIRCUIT")));Sign->SetHorizontalAlignment(EHTA_Center);Sign->SetWorldSize(210);Sign->SetRelativeLocation({-9100,0,1510});Sign->SetRelativeRotation(FRotator(0,180,0));Sign->RegisterComponent();Generated.Add(Sign);
-    BuiltLayoutVersion = 3;
+    BuiltLayoutVersion = 4;
 }

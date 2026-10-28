@@ -15,6 +15,7 @@ public:
     virtual void OnConstruction(const FTransform& Transform) override;
     UFUNCTION(BlueprintCallable, CallInEditor, Category="채굴|경기장", meta=(ToolTip="도로, 체공용 점프 램프, 2층 고가 코스와 우회로, 울타리와 숲을 다시 만듭니다. 실제 아이템은 별도 스포너로 배치합니다.")) void Rebuild();
 private:
+    UPROPERTY() TObjectPtr<class UStaticMesh> RampFillMesh;
     UPROPERTY() TArray<TObjectPtr<UActorComponent>> Generated;
     UPROPERTY() int32 BuiltLayoutVersion = 0;
     UInstancedStaticMeshComponent* Group(const TCHAR* Mesh,FLinearColor Color,bool Collision);

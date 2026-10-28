@@ -47,6 +47,7 @@ public:
     /** 코스 검증에서만 실제 클라이언트 차량을 배치하고 물리 가속 입력을 유지한다. */
     UFUNCTION(Client,Reliable) void ClientCourseTestDrive(FVector Location, FRotator Rotation);
     UFUNCTION(Client,Reliable) void ClientCourseScreenshot(const FString& FileName);
+    UFUNCTION(Client,Reliable) void ClientRecoveryTestProbe(FVector ExpectedLocation);
 private:
     bool bChatOpen=false;
     double LastChatTime=-100;

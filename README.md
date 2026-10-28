@@ -21,7 +21,7 @@ On a different engine installation path, update the engine path in the command f
 | Handbrake | Space |
 | Bumper laser | Left mouse button |
 | Place mine | F |
-| Reset vehicle | Backspace |
+| Recover vehicle to safe ground | Backspace |
 | Chat | Enter or T |
 | Cancel chat | Esc |
 | Rematch after the round | R |

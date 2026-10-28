@@ -30,6 +30,11 @@ private:
     void Probe(const FString& Label,int32 Phase);
     void FinishReport();
     bool bCourseMode=false;
+    bool bRecoveryMode=false;
+    int32 RecoveryStage=-1;
+    float RecoveryElapsed=0.f;
+    FVector RecoveryReference=FVector::ZeroVector;
+    void TickRecovery(float Delta);
     bool bCourseFinished=false;
     int32 CourseScenario=-1;
     float CourseElapsed=0;

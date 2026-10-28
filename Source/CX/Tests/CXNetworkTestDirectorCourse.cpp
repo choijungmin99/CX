@@ -13,6 +13,7 @@ void ACXNetworkTestDirector::BeginPlay()
 {
     Super::BeginPlay();
     bCourseMode=FParse::Param(FCommandLine::Get(),TEXT("CXCourseTest"));
+    bRecoveryMode=FParse::Param(FCommandLine::Get(),TEXT("CXRecoveryTest"));
 }
 
 void ACXNetworkTestDirector::StartCourseScenario(int32 Scenario)

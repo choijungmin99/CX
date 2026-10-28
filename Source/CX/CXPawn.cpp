@@ -30,6 +30,9 @@
 #include "Sound/SoundWave.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Tests/CXLaserCapture.h"
+#include "Engine/SkeletalMesh.h"
+#include "EngineUtils.h"
+#include "GameFramework/PlayerStart.h"
 
 #define LOCTEXT_NAMESPACE "VehiclePawn"
 
@@ -449,10 +452,67 @@ void ACXPawn::ServerResetVehicle_Implementation()
 void ACXPawn::ResetVehicleOnServer()
 {
     if(!HasAuthority() || IsMatchLocked())return;
-    FRotator R=GetActorRotation();R.Pitch=0;R.Roll=0;
-    SetActorTransform(FTransform(R,GetActorLocation()+FVector(0,0,100)),false,nullptr,ETeleportType::TeleportPhysics);
+    FTransform Recovery;
+    if(!FindRecoveryTransform(Recovery))return;
+    MulticastRecoverVehicle(Recovery.GetLocation(),Recovery.Rotator());
+    ForceNetUpdate();
+    if(auto* PC=Cast<ACXPlayerController>(GetController()))PC->ClientNotify(TEXT("차량을 안전한 위치로 복구했습니다."));
+}
+bool ACXPawn::FindRecoveryTransform(FTransform& OutTransform) const
+{
+    const UWorld* World=GetWorld();if(!World)return false;
+    const FVector Origin=GetActorLocation();
+    FVector Heading=GetActorForwardVector().GetSafeNormal2D();
+    if(Heading.IsNearlyZero())Heading=FVector::ForwardVector;
+    const FVector Right=FVector::CrossProduct(FVector::UpVector,Heading);
+    FBox LocalBounds(FVector(-250,-120,-35),FVector(250,120,150));
+    if(const USkeletalMesh* Asset=GetMesh()->GetSkeletalMeshAsset())
+        LocalBounds=Asset->GetBounds().GetBox().TransformBy(GetMesh()->GetComponentTransform().GetRelativeTransform(GetActorTransform()));
+    const FVector Scale=GetActorScale3D().GetAbs();
+    const FVector Extent=LocalBounds.GetExtent()*Scale+FVector(12.f);
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(CXRecovery),false,this);
+    FCollisionObjectQueryParams StaticObjects;StaticObjects.AddObjectTypesToQuery(ECC_WorldStatic);
+    auto TryGround=[&](FVector XY,float TopZ)->bool
+    {
+        FHitResult Ground;
+        if(!World->LineTraceSingleByObjectType(Ground,{XY.X,XY.Y,TopZ},{XY.X,XY.Y,TopZ-7000.f},StaticObjects,Params)
+            || Ground.ImpactNormal.Z<.85f)return false;
+        const FVector Normal=Ground.ImpactNormal.GetSafeNormal();
+        const FVector Forward=FVector::VectorPlaneProject(Heading,Normal).GetSafeNormal();
+        const FQuat Rotation=FRotationMatrix::MakeFromXZ(Forward,Normal).ToQuat();
+        const FVector Position=Ground.ImpactPoint+Normal*(50.f-LocalBounds.Min.Z*Scale.Z);
+        const FVector Center=Position+Rotation.RotateVector(LocalBounds.GetCenter()*Scale);
+        // 타 차량, 기둥, 경사판과 천장에 차체 전체가 겹치는 위치는 후보에서 제외한다.
+        if(World->OverlapBlockingTestByChannel(Center,Rotation,ECC_Vehicle,FCollisionShape::MakeBox(Extent),Params))return false;
+        // 좁은 난간이나 기둥 위에 순간이동하지 않도록 네 바퀴 쪽의 지지면도 확인한다.
+        for(float X:{-160.f,160.f})for(float Y:{-80.f,80.f})
+        {
+            const FVector Point=Ground.ImpactPoint+Rotation.RotateVector(FVector(X,Y,0));FHitResult Support;
+            if(!World->LineTraceSingleByObjectType(Support,Point+FVector(0,0,160),Point-FVector(0,0,160),StaticObjects,Params)
+                || Support.ImpactNormal.Z<.85f || FMath::Abs(FVector::DotProduct(Support.ImpactPoint-Ground.ImpactPoint,Normal))>45.f)return false;
+        }
+        OutTransform=FTransform(Rotation,Position,GetActorScale3D());return true;
+    };
+    // 제자리에서 위로 밀지 않고, 주변 지면을 차례로 검사한다. 공간이 없으면 출발 지점을 사용한다.
+    if(TryGround(Origin,Origin.Z+650.f))return true;
+    for(float Distance:{700.f,1200.f,2000.f,3200.f})
+        for(const FVector Direction:{-Heading,Right,-Right,Heading})
+            if(TryGround(Origin+Direction*Distance,Origin.Z+650.f))return true;
+    for(TActorIterator<APlayerStart> It(World);It;++It)
+        if(TryGround(It->GetActorLocation(),It->GetActorLocation().Z+500.f))return true;
+    return false;
+}
+void ACXPawn::MulticastRecoverVehicle_Implementation(FVector Location,FRotator Rotation)
+{
+    GetMesh()->SetSimulatePhysics(true);
+    ChaosVehicleMovement->ResetVehicle();
+    SetActorLocationAndRotation(Location,Rotation,false,nullptr,ETeleportType::TeleportPhysics);
     GetMesh()->SetPhysicsLinearVelocity(FVector::ZeroVector);
     GetMesh()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+    ChaosVehicleMovement->SetThrottleInput(0.f);ChaosVehicleMovement->SetSteeringInput(0.f);
+    ChaosVehicleMovement->SetBrakeInput(0.f);ChaosVehicleMovement->SetHandbrakeInput(false);
+    GetMesh()->WakeAllRigidBodies();
+    ApplyMatchInputLock();
 }
 
 void ACXPawn::DriveForTest(float Gas,float Turn)
