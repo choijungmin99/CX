@@ -16,6 +16,7 @@ class CX_API UCXGameWidget : public UUserWidget
 public:
     virtual void NativeOnInitialized() override;
     virtual void NativeTick(const FGeometry& Geometry,float DeltaSeconds) override;
+    virtual FReply NativeOnPreviewKeyDown(const FGeometry& Geometry,const FKeyEvent& Event) override;
     void FocusChatInput();
     void AddChatMessage(const FString& Sender,const FString& Message);
     void ShowNotice(const FString& Message);

@@ -22,7 +22,7 @@ void UChatUI::NativeOnInitialized()
     EditableTextBox_ChatInput=WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass(),TEXT("EditableTextBox_ChatInput"));
     EditableTextBox_ChatInput->SetHintText(FText::FromString(TEXT("메시지 입력 후 Enter · 최대 200자")));
     EditableTextBox_ChatInput->WidgetStyle.SetFont(FCoreStyle::GetDefaultFontStyle("Regular",15));
-    EditableTextBox_ChatInput->SetToolTipText(FText::FromString(TEXT("Enter로 전송하고 게임 조작으로 돌아갑니다. Esc로 입력을 취소합니다.")));
+    EditableTextBox_ChatInput->SetToolTipText(FText::FromString(TEXT("Enter로 전송합니다. Esc는 게임 종료 확인창을 열며, 계속하기를 선택하면 작성 중인 내용이 유지됩니다.")));
     Box->AddChildToVerticalBox(EditableTextBox_ChatInput)->SetPadding(FMargin(0,8,0,0));
 }
 void UChatUI::NativeConstruct()
@@ -56,7 +56,7 @@ FReply UChatUI::NativeOnKeyDown(const FGeometry& G,const FKeyEvent& E)
 {
     if(E.GetKey()==EKeys::Escape)
     {
-        if(auto* PC=GetOwningPlayer<ACXPlayerController>())PC->CloseChat();
+        if(!E.IsRepeat())if(auto* PC=GetOwningPlayer<ACXPlayerController>())PC->ToggleQuitConfirmation();
         return FReply::Handled();
     }
     return Super::NativeOnKeyDown(G,E);

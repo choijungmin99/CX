@@ -23,7 +23,7 @@ On a different engine installation path, update the engine path in the command f
 | Place mine | F |
 | Recover vehicle to safe ground | Backspace |
 | Chat | Enter or T |
-| Cancel chat | Esc |
+| Open quit confirmation / cancel confirmation | Esc |
 | Rematch after the round | R |
 
 ## Rules

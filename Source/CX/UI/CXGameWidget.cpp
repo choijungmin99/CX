@@ -62,7 +62,7 @@ void UCXGameWidget::NativeOnInitialized()
     DBox->AddChildToVerticalBox(Label(TEXT("좌클릭 범퍼 공격  |  F 지뢰 설치"),14,CXUIStyle::Muted));
     DBox->AddChildToVerticalBox(Label(TEXT("Space 핸드브레이크  |  Backspace 복구"),12,CXUIStyle::Muted));
     DBox->AddChildToVerticalBox(Label(TEXT("Enter 채팅  |  R 종료 후 다시 경기"),13,CXUIStyle::Mint));
-    DBox->AddChildToVerticalBox(Label(TEXT("AIR JUMP 체공  |  2F UP 고가 코스"),12,CXUIStyle::Mint));
+    DBox->AddChildToVerticalBox(Label(TEXT("Esc 게임 종료"),13,CXUIStyle::Mint));
     TSubclassOf<UChatUI> ChatClass=ChatWidgetClass;
     if(!ChatClass)ChatClass=LoadClass<UChatUI>(nullptr,TEXT("/Game/UI/WBP_ChatUI.WBP_ChatUI_C"));
     if(!ChatClass)ChatClass=UChatUI::StaticClass();
@@ -94,7 +94,8 @@ void UCXGameWidget::NativeTick(const FGeometry& G,float Dt)
     ConnectionText->SetColorAndOpacity(FSlateColor(bConnectedPair?CXUIStyle::Mint:CXUIStyle::Gold));
     ConnectionHintText->SetText(FText::FromString(NetMode==NM_Standalone
         ?TEXT("2인 실행 또는 서버 열기/접속이 필요합니다.")
-        :bConnectedPair?TEXT("각 창을 클릭한 뒤 W/A/S/D로 운전하세요."):TEXT("상대 플레이어 접속 대기")));
+        :TEXT("상대 플레이어 접속 대기")));
+    ConnectionHintText->SetVisibility(bConnectedPair?ESlateVisibility::Collapsed:ESlateVisibility::Visible);
     if(PS){CoinsText->SetText(FText::FromString(FString::Printf(TEXT("%d 원"),PS->Coins)));BonusText->SetText(FText::FromString(FString::Printf(TEXT("추가 최고 속도  %+.1f km/h"),PS->BonusMaxSpeed)));}
     if(auto* Car=Cast<ACXPawn>(PC->GetPawn()))
     {
@@ -118,6 +119,16 @@ void UCXGameWidget::NativeTick(const FGeometry& G,float Dt)
     NoticeText->SetVisibility(NoticeRemaining>0?ESlateVisibility::HitTestInvisible:ESlateVisibility::Collapsed);
 }
 void UCXGameWidget::FocusChatInput(){if(Chat)Chat->FocusInput();}
+FReply UCXGameWidget::NativeOnPreviewKeyDown(const FGeometry& Geometry,const FKeyEvent& Event)
+{
+    // 채팅 입력창이나 접속 IP 칸에 포커스가 있어도 Esc를 일관되게 처리한다.
+    if(Event.GetKey()==EKeys::Escape)
+    {
+        if(!Event.IsRepeat())if(auto* PC=GetOwningPlayer<ACXPlayerController>())PC->ToggleQuitConfirmation();
+        return FReply::Handled();
+    }
+    return Super::NativeOnPreviewKeyDown(Geometry,Event);
+}
 void UCXGameWidget::AddChatMessage(const FString& S,const FString& M){if(Chat)Chat->OnNewChatMessage(S,M);}
 void UCXGameWidget::ShowNotice(const FString& M){NoticeText->SetText(FText::FromString(M));NoticeRemaining=2.5f;}
 void UCXGameWidget::HostGame(){UGameplayStatics::OpenLevel(this,TEXT("CXMiningArena"),true,TEXT("listen"));}

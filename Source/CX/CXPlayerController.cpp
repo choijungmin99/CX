@@ -4,6 +4,9 @@
 #include "CXGameState.h"
 #include "CXPlayerState.h"
 #include "UI/CXGameWidget.h"
+#include "UI/CXQuitDialog.h"
+#include "GameFramework/PlayerInput.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "Engine/LocalPlayer.h"
@@ -53,6 +56,7 @@ void ACXPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Enter,IE_Pressed,this,&ACXPlayerController::FocusChat);
     InputComponent->BindKey(EKeys::T,IE_Pressed,this,&ACXPlayerController::FocusChat);
     InputComponent->BindKey(EKeys::R,IE_Pressed,this,&ACXPlayerController::Rematch);
+    InputComponent->BindKey(EKeys::Escape,IE_Pressed,this,&ACXPlayerController::ToggleQuitConfirmation);
 }
 void ACXPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -85,7 +89,7 @@ void ACXPlayerController::Tick(float Dt)
 }
 void ACXPlayerController::FocusChat()
 {
-    if(!IsLocalController() || !GameWidget || bChatOpen)return;
+    if(!IsLocalController() || !GameWidget || bChatOpen || IsQuitDialogOpen())return;
     bChatOpen=true;
     if(auto* P=Cast<ACXPawn>(GetPawn()))P->ApplyMatchInputLock();
     FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);SetInputMode(Mode);bShowMouseCursor=true;
@@ -93,10 +97,50 @@ void ACXPlayerController::FocusChat()
 }
 void ACXPlayerController::CloseChat()
 {
-    bChatOpen=false;SetInputMode(FInputModeGameOnly());bShowMouseCursor=false;
+    bChatOpen=false;
+    if(!IsQuitDialogOpen())RestoreLocalInputMode();
+}
+void ACXPlayerController::RestoreLocalInputMode()
+{
+    if(PlayerInput)PlayerInput->FlushPressedKeys();
+    if(GetNetMode()==NM_Standalone)
+    {
+        FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);SetInputMode(Mode);bShowMouseCursor=true;
+    }
+    else {SetInputMode(FInputModeGameOnly());bShowMouseCursor=false;}
+}
+bool ACXPlayerController::IsQuitDialogOpen() const {return IsValid(QuitDialog)&&QuitDialog->IsInViewport();}
+void ACXPlayerController::ToggleQuitConfirmation()
+{
+    if(!IsLocalController())return;
+    if(IsQuitDialogOpen()){CancelQuit();return;}
+    QuitDialog=CreateWidget<UCXQuitDialog>(this,UCXQuitDialog::StaticClass());
+    if(!QuitDialog)return;
+    bRestoreChatAfterQuitCancel=bChatOpen;bChatOpen=false;
+    QuitDialog->AddToViewport(1000);
+    if(PlayerInput)PlayerInput->FlushPressedKeys();
+    if(auto* Car=Cast<ACXPawn>(GetPawn()))Car->ApplyMatchInputLock();
+    // 리슨 서버의 경기 전체를 멈추지 않고 이 창의 입력만 UI로 전환한다.
+    FInputModeUIOnly Mode;Mode.SetWidgetToFocus(QuitDialog->TakeWidget());Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    SetInputMode(Mode);bShowMouseCursor=true;QuitDialog->FocusContinueButton();
+}
+void ACXPlayerController::CancelQuit()
+{
+    if(!IsQuitDialogOpen())return;
+    QuitDialog->RemoveFromParent();QuitDialog=nullptr;
+    const bool bRestoreChat=bRestoreChatAfterQuitCancel;bRestoreChatAfterQuitCancel=false;
+    RestoreLocalInputMode();
+    if(bRestoreChat)FocusChat();
+    if(auto* Car=Cast<ACXPawn>(GetPawn()))Car->ApplyMatchInputLock();
+}
+void ACXPlayerController::ConfirmQuit()
+{
+    // 최종 확인 버튼에서만 이 로컬 게임 창을 종료한다.
+    if(IsLocalController()&&IsQuitDialogOpen())UKismetSystemLibrary::QuitGame(this,this,EQuitPreference::Quit,false);
 }
 void ACXPlayerController::SubmitChat(const FString& Text)
 {
+    if(IsQuitDialogOpen())return;
     const FString Clean=Text.TrimStartAndEnd();
     if(!Clean.IsEmpty())ServerSendChat(Clean);
     CloseChat();
@@ -125,7 +169,7 @@ void ACXPlayerController::ClientNotify_Implementation(const FString& Message)
 }
 void ACXPlayerController::Rematch()
 {
-    if(!bChatOpen)ServerRequestRematch();
+    if(!bChatOpen && !IsQuitDialogOpen())ServerRequestRematch();
 }
 void ACXPlayerController::ServerRequestRematch_Implementation()
 {

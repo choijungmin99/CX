@@ -278,7 +278,7 @@ bool ACXPawn::CanDrive() const
 {
     if(IsMatchLocked())return false;
     const auto* PC=Cast<ACXPlayerController>(GetController());
-    return !PC || !PC->IsChatOpen();
+    return !PC || (!PC->IsChatOpen() && !PC->IsQuitDialogOpen());
 }
 bool ACXPawn::IsVehicleGrounded() const
 {

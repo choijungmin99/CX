@@ -6,6 +6,7 @@
 class UInputMappingContext;
 class ACXPawn;
 class UCXGameWidget;
+class UCXQuitDialog;
 
 /** 로컬 입력과 UI, 소유권을 이용한 채팅 Server/Client RPC를 연결한다. */
 UCLASS()
@@ -37,6 +38,11 @@ public:
     UFUNCTION(Server,Reliable) void ServerRequestRematch();
     void Rematch();
     bool IsChatOpen() const {return bChatOpen;}
+    /** Esc로 확인창을 열고, 열린 상태에서 Esc를 다시 누르면 취소한다. 로컬 화면 전용. */
+    void ToggleQuitConfirmation();
+    void CancelQuit();
+    void ConfirmQuit();
+    bool IsQuitDialogOpen() const;
     int32 ReceivedChatMessages=0;
     /** 실제 별도 클라이언트에서만 실행하는 개발용 네트워크 검증. 일반 경기에서는 호출하지 않는다. */
     UFUNCTION(Client,Reliable) void ClientTestAction(int32 Action);
@@ -49,6 +55,9 @@ public:
     UFUNCTION(Client,Reliable) void ClientCourseScreenshot(const FString& FileName);
     UFUNCTION(Client,Reliable) void ClientRecoveryTestProbe(FVector ExpectedLocation);
 private:
+    UPROPERTY(Transient) TObjectPtr<UCXQuitDialog> QuitDialog;
+    bool bRestoreChatAfterQuitCancel=false;
+    void RestoreLocalInputMode();
     bool bChatOpen=false;
     double LastChatTime=-100;
     bool bCapturingDemo=false;
