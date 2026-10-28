@@ -28,19 +28,19 @@ void ACXGameState::OnRep_Phase()
 void ACXGameState::MulticastWorldFX_Implementation(FVector P,bool Explosion,bool Speed,UParticleSystem* Effect,USoundBase* OverrideSound)
 {
     if(GetNetMode()==NM_DedicatedServer)return;
-    // 코인 RPC에 효과가 생략되어도 피격용 스파크 대신 전용 금빛 효과를 선택한다.
+    // RPC에 애셋이 생략되어도 코인/속도 아이템의 전용 효과를 선택한다.
     const TCHAR* DefaultParticlePath=Explosion
         ? TEXT("/Game/StarterContent/Particles/P_Explosion.P_Explosion")
-        : Speed ? TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks")
+        : Speed ? TEXT("/Game/Mining/Particles/P_SpeedPickup.P_SpeedPickup")
         : TEXT("/Game/Mining/Particles/P_CoinPickup.P_CoinPickup");
     auto* FX=Effect?Effect:LoadObject<UParticleSystem>(nullptr,DefaultParticlePath);
     const TCHAR* DefaultSoundPath = Explosion
         ? TEXT("/Game/StarterContent/Audio/Explosion01.Explosion01")
-        : Speed ? TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01")
+        : Speed ? TEXT("/Game/Mining/Audio/S_SpeedPickup.S_SpeedPickup")
         : TEXT("/Game/Mining/Audio/S_CoinPickup.S_CoinPickup");
     auto* Sound=OverrideSound?OverrideSound:LoadObject<USoundBase>(nullptr,DefaultSoundPath);
     if(FX)UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),FX,P);
-    // 코인 전용 음원의 두 음과 잔향이 유지되도록 원래 피치(1.0)로 재생한다.
-    const float Pitch = Speed ? 1.3f : Explosion ? 1.7f : 1.f;
+    // 전용 획득음의 음색과 상승 곡선을 유지하도록 원래 피치(1.0)로 재생한다.
+    const float Pitch = Explosion ? 1.7f : 1.f;
     if(Sound)UGameplayStatics::PlaySoundAtLocation(this,Sound,P,.5f,Pitch);
 }

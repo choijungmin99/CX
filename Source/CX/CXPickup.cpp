@@ -35,6 +35,12 @@ ACXCoin::ACXCoin()
 }
 ACXSpeedBuff::ACXSpeedBuff()
 {
+    // 속도 획득은 푸른 에너지 파동과 부드러운 상승음을 사용한다.
+    // 기본 애셋을 직접 참조해 패키징에서도 피격 효과로 대체되지 않게 한다.
+    static ConstructorHelpers::FObjectFinder<UParticleSystem> SpeedFX(TEXT("/Game/Mining/Particles/P_SpeedPickup.P_SpeedPickup"));
+    static ConstructorHelpers::FObjectFinder<USoundBase> SpeedSound(TEXT("/Game/Mining/Audio/S_SpeedPickup.S_SpeedPickup"));
+    PickupParticle=SpeedFX.Object;
+    PickupSound=SpeedSound.Object;
     Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")));
     Mesh->SetRelativeScale3D(FVector(.9f,.9f,.9f));Mesh->SetRelativeRotation(FRotator(0,45,0));
 }
@@ -45,15 +51,15 @@ void ACXPickup::BeginPlay()
     if(!PickupParticle)
     {
         const TCHAR* ParticlePath=IsSpeedItem()
-            ? TEXT("/Game/StarterContent/Particles/P_Sparks.P_Sparks")
+            ? TEXT("/Game/Mining/Particles/P_SpeedPickup.P_SpeedPickup")
             : TEXT("/Game/Mining/Particles/P_CoinPickup.P_CoinPickup");
         PickupParticle=LoadObject<UParticleSystem>(nullptr,ParticlePath);
     }
     if (!PickupSound)
     {
-        // 코인은 전용 획득음을 사용한다. 차량 충격음을 높여 재생하지 않는다.
+        // 각 아이템은 전용 획득음을 사용한다. 속도 아이템도 충격음을 사용하지 않는다.
         const TCHAR* SoundPath = IsSpeedItem()
-            ? TEXT("/Game/StarterContent/Audio/Collapse01.Collapse01")
+            ? TEXT("/Game/Mining/Audio/S_SpeedPickup.S_SpeedPickup")
             : TEXT("/Game/Mining/Audio/S_CoinPickup.S_CoinPickup");
         PickupSound = LoadObject<USoundBase>(nullptr, SoundPath);
     }
@@ -89,5 +95,5 @@ void ACXPickup::MulticastPickupFX_Implementation(FVector P)
 {
     if(GetNetMode()==NM_DedicatedServer)return;
     if(PickupParticle)UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),PickupParticle,P);
-    if(PickupSound)UGameplayStatics::PlaySoundAtLocation(this,PickupSound,P,.5f,IsSpeedItem()?1.3f:1.f);
+    if(PickupSound)UGameplayStatics::PlaySoundAtLocation(this,PickupSound,P,.5f,1.f);
 }
